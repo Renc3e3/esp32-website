@@ -1,0 +1,4040 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BLE Tracker Dashboard</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #0a0e1a;
+      --panel: #111827;
+      --panel-hover: #1a2332;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+      --accent: #3b82f6;
+      --accent-glow: #60a5fa;
+      --success: #10b981;
+      --danger: #ef4444;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Inter", system-ui, -apple-system, sans-serif;
+      background: radial-gradient(circle at 20% 20%, #1e293b 0%, #0a0e1a 60%);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      animation: fadeIn 0.4s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+      }
+
+      to {
+        opacity: 1;
+      }
+    }
+
+    header {
+      padding: 18px clamp(16px, 3vw, 32px);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px;
+      justify-content: space-between;
+      -webkit-backdrop-filter: blur(12px);
+      backdrop-filter: blur(12px);
+      background: rgba(17, 24, 39, 0.85);
+      border-bottom: 1px solid #1f2937;
+      position: sticky;
+      top: 0;
+      z-index: 10001;
+      /* High Z-Index to keep header above content */
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 1.25rem;
+      letter-spacing: 0.5px;
+    }
+
+    main {
+      padding: clamp(16px, 3vw, 32px);
+      display: grid;
+      gap: 16px;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      flex: 1;
+    }
+
+    .card {
+      background: rgba(17, 24, 39, 0.9);
+      border: 1px solid rgba(59, 130, 246, 0.1);
+      border-radius: 16px;
+      padding: 16px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05);
+      transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+
+    .card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(59, 130, 246, 0.2), 0 0 20px rgba(59, 130, 246, 0.1);
+      border-color: rgba(59, 130, 246, 0.2);
+    }
+
+    .card h2 {
+      margin: 0 0 8px 0;
+      font-size: 1.05rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    button,
+    select {
+      background: linear-gradient(135deg, #3b82f6, #60a5fa);
+      color: #ffffff;
+      border: none;
+      border-radius: 999px;
+      padding: 10px 16px;
+      font-weight: 700;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.1);
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(59, 130, 246, 0.4), 0 0 32px rgba(59, 130, 246, 0.2);
+      background: linear-gradient(135deg, #60a5fa, #3b82f6);
+    }
+
+    button:active {
+      transform: translateY(0);
+      box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+    }
+
+    .ghost-btn {
+      background: rgba(31, 41, 55, 0.8);
+      color: var(--text);
+      border: 1px solid rgba(59, 130, 246, 0.2);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .ghost-btn:hover {
+      background: var(--panel-hover);
+      border-color: rgba(59, 130, 246, 0.4);
+      box-shadow: 0 4px 16px rgba(59, 130, 246, 0.2);
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+    }
+
+    .stat {
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid rgba(59, 130, 246, 0.15);
+      border-radius: 12px;
+      padding: 12px 14px;
+      transition: all 0.2s ease;
+    }
+
+    .stat:hover {
+      background: rgba(15, 23, 42, 0.95);
+      border-color: rgba(59, 130, 246, 0.3);
+      transform: translateY(-1px);
+    }
+
+    .stat strong {
+      display: block;
+      font-size: 0.95rem;
+    }
+
+    .muted {
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+
+    #map {
+      width: 100%;
+      height: 400px;
+      border-radius: 12px;
+      border: 1px solid #1f2937;
+    }
+
+    #mapDisclaimer {
+      position: absolute;
+      top: 15px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1001;
+      background: rgba(249, 115, 22, 0.95);
+      color: white;
+      padding: 8px 20px;
+      border-radius: 20px;
+      font-weight: 950;
+      font-size: 0.9rem;
+      pointer-events: none;
+      display: none;
+      box-shadow: 0 4px 15px rgba(249, 115, 22, 0.5);
+      border: 2px solid white;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      white-space: nowrap;
+    }
+
+    .custom-marker {
+      background: transparent;
+      border: none;
+      transition: all 1s linear;
+      /* Smooth sliding for updates */
+    }
+
+    .leaflet-marker-draggable {
+      cursor: move !important;
+    }
+
+    .leaflet-marker-draggable:hover {
+      filter: brightness(1.2);
+    }
+
+    /* Pulsing animation for device marker */
+    @keyframes pulse {
+      0% {
+        transform: scale(1);
+        opacity: 1;
+      }
+
+      50% {
+        transform: scale(1.5);
+        opacity: 0.5;
+      }
+
+      100% {
+        transform: scale(2);
+        opacity: 0;
+      }
+    }
+
+    .device-marker-pulse {
+      position: absolute;
+      width: 30px;
+      height: 30px;
+      background: rgba(34, 197, 94, 0.4);
+      border-radius: 50%;
+      animation: pulse 2s ease-out infinite;
+      pointer-events: none;
+    }
+
+    .device-marker-inner {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 18px;
+      height: 18px;
+      background: linear-gradient(135deg, #22c55e, #16a34a);
+      border-radius: 50%;
+      border: 3px solid white;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+      z-index: 10;
+    }
+
+    /* Anchor Pulse (Cyan) */
+    .anchor-marker-pulse {
+      position: absolute;
+      width: 30px;
+      height: 30px;
+      background: rgba(34, 211, 238, 0.4);
+      border-radius: 50%;
+      animation: pulse 2.5s ease-out infinite;
+      pointer-events: none;
+    }
+
+    .device-marker-moving .device-marker-inner {
+      background: linear-gradient(135deg, #f97316, #ea580c);
+    }
+
+    .device-marker-moving .device-marker-pulse {
+      background: rgba(249, 115, 22, 0.4);
+    }
+
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .alert {
+      padding: 12px;
+      border-radius: 12px;
+      border: 1px solid #1f2937;
+      background: #1f2937;
+      color: var(--text);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      animation: slideIn 0.3s ease-out;
+    }
+
+    .alert.danger {
+      border-color: #f97316;
+      color: #fecba1;
+      background: rgba(249, 115, 22, 0.1);
+      box-shadow: 0 0 20px rgba(249, 115, 22, 0.3);
+    }
+
+    @keyframes popIn {
+      from {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.5);
+      }
+
+      to {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+      }
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-20px) scale(0.9);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    .alert-modal {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 95%;
+      max-width: 600px;
+      background: rgba(17, 24, 39, 0.98);
+      backdrop-filter: blur(20px);
+      border: 6px solid #ef4444;
+      border-radius: 24px;
+      padding: 40px;
+      z-index: 20000;
+      box-shadow: 0 0 150px rgba(239, 68, 68, 0.8), 0 0 0 2000px rgba(0, 0, 0, 0.8);
+      text-align: center;
+      flex-direction: column;
+      gap: 20px;
+      animation: popIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+
+    .alert-modal .caution-wrapper {
+      margin-bottom: 30px;
+      perspective: 1000px;
+    }
+
+    .alert-modal .caution-icon {
+      font-size: 100px;
+      display: block;
+      animation: pulsateIcon 0.8s ease-in-out infinite alternate;
+      text-shadow: 0 0 20px rgba(249, 115, 22, 0.5);
+    }
+
+    .alert-modal .caution-label {
+      color: #f97316;
+      font-weight: 950;
+      font-size: 2.5rem;
+      text-transform: uppercase;
+      margin-top: -15px;
+      letter-spacing: 4px;
+      animation: pulsateText 0.8s ease-in-out infinite alternate;
+      text-shadow: 0 0 15px rgba(249, 115, 22, 0.6);
+    }
+
+    @keyframes pulsateIcon {
+      from {
+        transform: scale(1) translateZ(0);
+        filter: drop-shadow(0 0 10px rgba(249, 115, 22, 0.4));
+      }
+
+      to {
+        transform: scale(1.3) translateZ(50px);
+        filter: drop-shadow(0 0 40px rgba(249, 115, 22, 0.9));
+      }
+    }
+
+    @keyframes pulsateText {
+      from {
+        transform: scale(1);
+        opacity: 0.8;
+      }
+
+      to {
+        transform: scale(1.1);
+        opacity: 1;
+        text-shadow: 0 0 25px rgba(249, 115, 22, 0.9);
+      }
+    }
+
+    .alert-modal .siren-container {
+      position: relative;
+      display: inline-block;
+      padding: 10px;
+      border-radius: 50%;
+    }
+
+    .alert-modal .siren-icon {
+      display: inline-block;
+      font-size: 3.5rem;
+      position: relative;
+      z-index: 2;
+      animation: realisticSpin 2s linear infinite;
+    }
+
+    .alert-modal .siren-light {
+      position: absolute;
+      top: -20%;
+      left: -20%;
+      width: 140%;
+      height: 140%;
+      background: conic-gradient(from 0deg,
+          transparent 0deg,
+          rgba(239, 68, 68, 0.8) 10deg,
+          transparent 20deg,
+          transparent 180deg,
+          rgba(59, 130, 246, 0.8) 190deg,
+          transparent 200deg);
+      border-radius: 50%;
+      z-index: 1;
+      animation: lightSweep 1.5s linear infinite;
+      filter: blur(15px);
+    }
+
+    @keyframes realisticSpin {
+      0% {
+        transform: scaleX(1);
+      }
+
+      25% {
+        transform: scaleX(0.2);
+        filter: brightness(1.5);
+      }
+
+      50% {
+        transform: scaleX(1);
+      }
+
+      75% {
+        transform: scaleX(0.2);
+        filter: brightness(1.5);
+      }
+
+      100% {
+        transform: scaleX(1);
+      }
+    }
+
+    @keyframes lightSweep {
+      from {
+        transform: rotate(0deg);
+      }
+
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    /* Custom Confirmation Modal */
+    /* Custom Confirmation Modal - BANNER STYLE */
+    .confirm-modal {
+      display: none;
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 95%;
+      max-width: 600px;
+      background: #1e293b;
+      border: 2px solid var(--accent);
+      border-radius: 12px;
+      padding: 20px;
+      z-index: 30000;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6), 0 0 0 2000px rgba(0, 0, 0, 0.7);
+      text-align: center;
+      animation: slideDown 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes slideDown {
+      from {
+        transform: translate(-50%, -100%);
+        opacity: 0;
+      }
+
+      to {
+        transform: translate(-50%, 0);
+        opacity: 1;
+      }
+    }
+
+    .confirm-modal h3 {
+      color: white;
+      margin-bottom: 15px;
+      font-size: 1.5rem;
+    }
+
+    .confirm-modal p {
+      color: var(--muted);
+      margin-bottom: 25px;
+      line-height: 1.5;
+    }
+
+    .confirm-modal.warning {
+      border-color: #ef4444;
+    }
+
+    .confirm-modal.warning h3 {
+      color: #ef4444;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+    }
+
+    .modal-btn {
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s;
+    }
+
+    .modal-btn.primary {
+      background: var(--accent);
+      color: white;
+    }
+
+    .modal-btn.danger {
+      background: #ef4444;
+      color: white;
+    }
+
+    .modal-btn.ghost {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--muted);
+    }
+
+    /* Movement Summary Dynamic States */
+    #movementStatsCard {
+      transition: all 0.5s ease;
+    }
+
+
+
+    .card-safe {
+      border: 1px solid #22c55e !important;
+      box-shadow: 0 0 15px rgba(34, 197, 94, 0.1);
+    }
+
+    .card-danger {
+      border: 2px solid #ef4444 !important;
+      background: rgba(239, 68, 68, 0.05) !important;
+      box-shadow: 0 0 30px rgba(239, 68, 68, 0.2);
+    }
+
+    .movement-log {
+      margin-top: 15px;
+      padding-top: 15px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      max-height: 400px;
+      overflow-y: auto;
+      font-family: monospace;
+      font-size: 0.75rem;
+      text-align: left;
+    }
+
+    .log-entry {
+      padding: 4px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .alert-modal h3 {
+      margin: 0;
+      color: #ef4444;
+      font-size: 3rem;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+
+    .alert-modal p {
+      margin: 0;
+      color: #fecba1;
+      font-size: 1.4rem;
+      line-height: 1.5;
+    }
+
+    .alert-modal .emergency-text {
+      color: #ef4444;
+      font-weight: 900;
+      font-size: 2rem;
+      margin: 20px 0;
+      text-transform: uppercase;
+      animation: blink 0.5s infinite alternate;
+    }
+
+    @keyframes blink {
+      from {
+        opacity: 1;
+      }
+
+      to {
+        opacity: 0.5;
+      }
+    }
+
+    .alert-modal button {
+      width: 100%;
+      padding: 20px;
+      font-size: 1.5rem;
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+      border: 3px solid #fecba1;
+      cursor: pointer;
+      color: white;
+      font-weight: 900;
+      border-radius: 12px;
+      margin-top: 10px;
+    }
+
+    .alert-modal button:hover {
+      filter: brightness(1.2);
+    }
+
+    .badge {
+      padding: 4px 8px;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      background: #0ea5e914;
+      color: #7dd3fc;
+      border: 1px solid #22d3ee44;
+    }
+
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .list-item {
+      background: #0f172a;
+      border: 1px solid #1f2937;
+      border-radius: 12px;
+      padding: 12px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .pill {
+      border-radius: 999px;
+      padding: 6px 10px;
+      background: #111827;
+      border: 1px solid #1f2937;
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+
+    @media (max-width: 600px) {
+      header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      h1 {
+        font-size: 1.1rem;
+      }
+
+      #map {
+        height: 280px;
+      }
+    }
+  </style>
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <!-- Leaflet JavaScript with fallback -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""
+    onerror="console.error('Failed to load Leaflet from CDN. Trying fallback...'); this.onerror=null; this.src='https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js';"></script>
+</head>
+
+<body>
+  <header>
+    <div>
+      <h1>BLE Tracker Dashboard</h1>
+      <div class="muted">For: ESP32-S3 DevKitC, BLE beacons</div>
+      <div style="display: flex; gap: 12px; align-items: center; margin-top: 4px; flex-wrap: wrap;">
+        <span id="trackerStatus" style="color: var(--muted); font-size: 0.85rem;">
+          📍 Tracker: Not connected
+        </span>
+        <span style="color: var(--muted);">•</span>
+        <span id="beaconStatus" style="color: var(--muted); font-size: 0.85rem;">
+          📡 Beacon: Not connected
+        </span>
+        <span style="color: var(--muted);">•</span>
+        <span id="wifiMqttStatus" style="color: var(--muted); font-size: 0.85rem;">
+          📶 WiFi/MQTT: <span id="wifiMqttIndicator">Checking...</span>
+        </span>
+      </div>
+    </div>
+    <div class="row">
+      <button id="connectTrackerBtn">📍 Connect Tracker</button>
+      <button id="connectBeaconBtn">📡 Connect Beacon</button>
+      <button class="ghost-btn" id="disconnectAllBtn" style="display:none;">Disconnect All</button>
+      <button class="ghost-btn" id="forgetBtn" style="display:none;" title="Clear saved device info">Forget
+        Devices</button>
+      <button class="ghost-btn" id="startTrackingBtn" style="display:none;" title="Start location tracking">Start
+        Tracking</button>
+
+    </div>
+    <div style="position: relative;">
+      <button class="ghost-btn" id="notifToggleBtn" title="Show Notifications"
+        style="padding: 10px; border-radius: 50%;">
+        🔔 <span id="notifBadge"
+          style="display:none; position:absolute; top:-2px; right:-2px; background:var(--danger); width:10px; height:10px; border-radius:50%;"></span>
+      </button>
+      <!-- Notification History Panel with High Z-Index -->
+      <div id="notifPanel"
+        style="display: none; position: absolute; right: 0; top: 55px; width: 320px; background: rgba(17, 24, 39, 0.98); backdrop-filter: blur(16px); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 12px; padding: 12px; z-index: 10002; box-shadow: 0 20px 60px rgba(0,0,0,0.6); max-height: 75vh; overflow-y: auto;">
+        <div
+          style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:8px;">
+          <strong style="font-size:0.9rem;">Notifications</strong>
+          <button id="clearNotifs"
+            style="background:none; border:none; color:var(--muted); font-size:0.8rem; padding:0;">Clear</button>
+        </div>
+        <div id="notifList" style="display:flex; flex-direction:column; gap:8px;">
+          <div class="muted" style="text-align:center; padding:20px;">No new notifications</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="card" aria-label="Tracking">
+      <h2>Location & Geo-fence <span class="badge" id="fenceState">Fence: idle</span></h2>
+      <div style="position: relative;">
+        <div id="map"></div>
+
+        <div
+          style="position: absolute; bottom: 10px; left: 10px; background: rgba(15, 23, 42, 0.9); padding: 8px 12px; border-radius: 8px; font-size: 0.75rem; z-index: 1000;">
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+            <div style="width: 12px; height: 12px; background: #22d3ee; border-radius: 50%; border: 2px solid white;">
+            </div>
+            <span>Anchor (PC/Mac Location)</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+            <div style="width: 12px; height: 12px; background: #22c55e; border-radius: 50%; border: 2px solid white;">
+            </div>
+            <span>ESP32-S3-Tracker (Stationary)</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="width: 12px; height: 12px; background: #f97316; border-radius: 50%; border: 2px solid white;">
+            </div>
+            <span>ESP32-S3-Tracker (Moving)</span>
+          </div>
+        </div>
+        <div
+          style="position: absolute; top: 10px; left: 10px; display: flex; flex-direction: column; gap: 4px; z-index: 1000;">
+          <button id="zoomInBtn" class="ghost-btn"
+            style="width: 36px; height: 36px; padding: 0; font-size: 1.2rem; font-weight: bold;">+</button>
+          <button id="zoomOutBtn" class="ghost-btn"
+            style="width: 36px; height: 36px; padding: 0; font-size: 1.2rem; font-weight: bold;">−</button>
+          <button id="zoomMaxBtn" class="ghost-btn" style="width: 36px; height: 36px; padding: 0; font-size: 0.7rem;"
+            title="Max zoom">MAX</button>
+        </div>
+      </div>
+      <div class="row" style="margin-top:10px; gap: 10px;">
+        <div class="pill" style="display:flex; align-items:center; gap:5px;">
+          <span>Room size (m):</span>
+          <input id="roomSize" type="number" min="2" max="50" value="6"
+            style="width:60px; background:#0f172a; color:var(--text); border:1px solid #1f2937; border-radius:4px; padding:4px;" />
+          <button id="lockFenceBtn" class="ghost-btn" style="padding:2px 6px; min-width:30px;"
+            title="Lock/Unlock Range">🔓</button>
+        </div>
+        <button class="ghost-btn" id="locateBtn"
+          title="Request location permission and center the map">Auto-locate</button>
+        <button class="ghost-btn" id="manualAnchorBtn" title="Enter coordinates manually">Set manually</button>
+        <button id="clickToSetBtn" class="btn" onclick="enableClickToSet()">✍️ Draw Fence Zone</button>
+        <button class="ghost-btn" id="clearTrailBtn" title="Clear movement history trail">Clear trail</button>
+      </div>
+      <div class="row" style="margin-top:8px; gap: 10px;">
+        <label class="pill">Anchor (this PC): <span id="anchorLatLon" class="muted">locating…</span></label>
+        <label class="pill" id="accuracyPill" style="display:none;">Accuracy: <span id="anchorAccuracy"
+            class="muted">--</span></label>
+        <label class="pill">Device: <span id="deviceLatLon" class="muted">not connected</span></label>
+      </div>
+    </section>
+
+    <section class="card" aria-label="Vitals">
+      <h2>Vitals & Motion</h2>
+      <div class="grid-2">
+        <div class="stat">
+          <strong>Battery</strong>
+          <div id="batteryText">--%</div>
+          <div class="muted" id="batteryEta">--h est runtime</div>
+        </div>
+        <div class="stat">
+          <strong>Motion</strong>
+          <div id="motionText">Idle</div>
+          <div class="muted">IMU (LSM6DSOX / MPU6050)</div>
+          <div class="muted" id="fallMeta">Falls: 0 • Last: --</div>
+        </div>
+        <div class="stat">
+          <strong>Radar (LD2410S)</strong>
+          <div id="radarText">Waiting…</div>
+          <div class="muted">Micromotion / Through-wall</div>
+        </div>
+        <div class="stat">
+          <strong>Signal Strength (RSSI)</strong>
+          <div id="trackerRssiText">-- dBm</div>
+          <div class="muted" id="trackerDistanceEst">Estimated Range: --</div>
+        </div>
+        <div class="stat">
+          <strong>ToF (VL53L0X)</strong>
+          <div id="tofText">Out of range</div>
+          <div class="muted">Proximity (< 2m)</div>
+          </div>
+        </div>
+    </section>
+
+    <section class="card" aria-label="Beacon Stats">
+      <h2>
+        Connectivity & Beacon
+        <span class="badge" id="beaconStatusBadge">Scanning...</span>
+      </h2>
+
+      <!-- Active Data Source Indicator -->
+      <div id="activeSourceIndicator" style="padding: 10px; background: rgba(59, 130, 246, 0.1); 
+           border-radius: 8px; margin-bottom: 15px; display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <strong>Active Data Source:</strong>
+            <span id="activeSource" style="margin-left: 8px; color: var(--accent);">None</span>
+          </div>
+          <div id="sourceQuality" style="font-size: 0.75rem; color: var(--muted);"></div>
+        </div>
+      </div>
+
+      <!-- Visual Link Diagram -->
+      <div
+        style="display: flex; align-items: center; justify-content: space-between; margin: 15px 0; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 12px;">
+        <div style="text-align: center;">
+          <div style="font-size: 1.5rem;">💻</div>
+          <div class="muted" style="font-size: 0.7rem;">Website</div>
+        </div>
+
+        <div style="flex: 1; text-align: center; position: relative;">
+          <div id="linkA_Line" style="height: 2px; background: #334155; width: 100%; position: absolute; top: 12px;">
+          </div>
+          <div id="linkA_Dot"
+            style="width: 8px; height: 8px; background: #334155; border-radius: 50%; position: absolute; top: 9px; left: 50%; transform: translateX(-50%);">
+          </div>
+          <div class="muted" style="font-size: 0.7rem; margin-top: 20px;" id="linkA_Text">-- dBm</div>
+        </div>
+
+        <div style="text-align: center;">
+          <div style="font-size: 1.5rem;">📡</div>
+          <div class="muted" style="font-size: 0.7rem;">Beacon</div>
+        </div>
+
+        <div style="flex: 1; text-align: center; position: relative;">
+          <div id="linkB_Line" style="height: 2px; background: #334155; width: 100%; position: absolute; top: 12px;">
+          </div>
+          <div id="linkB_Dot"
+            style="width: 8px; height: 8px; background: #334155; border-radius: 50%; position: absolute; top: 9px; left: 50%; transform: translateX(-50%);">
+          </div>
+          <div class="muted" style="font-size: 0.7rem; margin-top: 20px;" id="linkB_Text">-- dBm</div>
+        </div>
+
+        <div style="text-align: center;">
+          <div style="font-size: 1.5rem;">📍</div>
+          <div class="muted" style="font-size: 0.7rem;">Tracker</div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="stat">
+          <strong>Beacon Battery</strong>
+          <div id="beaconBattText">--%</div>
+          <div class="muted">Range Extender Power</div>
+        </div>
+        <div class="stat">
+          <strong>Link Quality</strong>
+          <div id="linkQualityText">Unknown</div>
+          <div class="muted" id="linkQualitySub">Waiting for data...</div>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:15px; gap: 10px; justify-content: center;">
+        <div class="pill" style="display:flex; align-items:center; gap:5px; border-color: var(--accent);">
+          <span>Beacon Fence (m):</span>
+          <input id="beaconRoomSize" type="number" min="2" max="50" value="15"
+            style="width:60px; background:#0f172a; color:var(--text); border:1px solid #1f2937; border-radius:4px; padding:4px;" />
+          <button id="lockBeaconFenceBtn" class="ghost-btn" style="padding:2px 6px; min-width:30px;"
+            title="Lock/Unlock Beacon Range">🔓</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" id="movementStatsCard" aria-label="Movement Summary">
+      <h2 style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+        Movement Summary
+        <div style="display:flex; align-items:center; gap:10px;">
+
+          <button id="clearLogsBtn" class="ghost-btn" style="font-size: 0.75rem; padding: 4px 10px;">Clear All
+            Logs</button>
+        </div>
+      </h2>
+      <div class="grid-2">
+        <div class="stat">
+          <strong>Total Distance</strong>
+          <div id="statsDistance" style="font-size: 1.5rem; font-weight: bold; color: var(--accent);">0.0 m</div>
+          <div class="muted">Cumulative path length</div>
+        </div>
+        <div class="stat">
+          <strong>Moving Duration</strong>
+          <div id="statsDuration" style="font-size: 1.5rem; font-weight: bold; color: var(--accent);">00:00:00</div>
+          <div class="muted">Total time in motion</div>
+        </div>
+      </div>
+      <div id="movementLog" class="movement-log">
+        <div class="muted" style="text-align:center;">Recording movement history…</div>
+      </div>
+
+    </section>
+
+    <!-- REAL-ONLY BREACH HISTORY SECTION -->
+    <section class="card" id="realBreachCard" aria-label="Real Breach History">
+      <h2 style="color:var(--danger); display:flex; justify-content:space-between; align-items:center;">
+        🛡️ Real Geo-fence Breach History
+        <span id="realBreachCount" class="badge" style="background:var(--danger); color:white; font-size:0.8rem;">0
+          Total</span>
+      </h2>
+      <div id="realBreachLog" class="movement-log" style="max-height: 200px;">
+        <div class="muted" style="text-align:center; padding:15px;">No real-world breaches recorded</div>
+      </div>
+      <div style="text-align: right; margin-top: 10px;">
+        <button id="clearRealBreachBtn" class="ghost-btn"
+          style="font-size: 0.75rem; padding: 4px 10px; color:var(--muted);">Clear Real Logs</button>
+      </div>
+    </section>
+
+    <section class="card" aria-label="Controls">
+      <h2>Controls & Feedback</h2>
+      <div class="list">
+        <div class="list-item">
+          <div>
+            <strong>Vibration motor</strong>
+            <div class="muted">Buzz for alerts / haptics</div>
+          </div>
+          <button class="ghost-btn" id="buzzBtn">Pulse</button>
+        </div>
+        <div class="list-item">
+          <div>
+            <strong>WS2812B LED</strong>
+            <div class="muted">Status color</div>
+          </div>
+          <div class="row">
+            <select id="ledColor"
+              style="background:#0f172a; color:var(--text); border:1px solid #1f2937; border-radius:8px; padding:8px;">
+              <option value="0,255,120">Green</option>
+              <option value="255,210,0">Amber</option>
+              <option value="255,80,80">Red</option>
+              <option value="80,180,255">Blue</option>
+            </select>
+            <button class="ghost-btn" id="setLedBtn">Set</button>
+          </div>
+        </div>
+        <div class="list-item">
+          <div>
+            <strong>Geo-fence alert</strong>
+            <div class="muted">Popup when leaving room-sized fence</div>
+          </div>
+          <div class="toggle-row">
+            <input type="checkbox" id="fenceToggle" checked />
+            <span class="muted">Enabled</span>
+          </div>
+        </div>
+      </div>
+    </section>
+    </section>
+  </main>
+
+  <div id="geoAlert" class="alert-modal">
+    <div class="caution-wrapper">
+      <span class="caution-icon">⚠️</span>
+      <div class="caution-label">CAUTION!</div>
+    </div>
+    <h3>
+      <div class="siren-container">
+        <div class="siren-light"></div>
+        <span class="siren-icon">🚨</span>
+      </div>
+      ALERT!
+      <div class="siren-container">
+        <div class="siren-light"></div>
+        <span class="siren-icon">🚨</span>
+      </div>
+    </h3>
+    <p>Geo-fence has been crossed!</p>
+    <div class="emergency-text">Please Check on Patient Immediately! At Risk!</div>
+    <button onclick="dismissAlert()">DISMISS / ACKNOWLEDGE</button>
+  </div>
+
+
+
+  <!-- Generic Custom Confirmation Modal -->
+  <div id="genericConfirmModal" class="confirm-modal warning">
+    <h3 id="genericConfirmTitle">Are you sure?</h3>
+    <p id="genericConfirmMessage">This action cannot be undone.</p>
+    <div class="modal-actions">
+      <button class="modal-btn ghost" id="genericConfirmCancel">Cancel</button>
+      <button class="modal-btn danger" id="genericConfirmOk">Yes, Delete</button>
+    </div>
+  </div>
+
+  <script>
+    // --- BLE service/characteristic UUID placeholders (customize to your firmware)
+    const SERVICE_UUID = "0000ffff-0000-1000-8000-00805f9b34fb";
+    const CHAR_LOCATION = "0000ff01-0000-1000-8000-00805f9b34fb";
+    const CHAR_MOTION = "0000ff02-0000-1000-8000-00805f9b34fb";
+    const CHAR_RADAR = "0000ff03-0000-1000-8000-00805f9b34fb";
+    const CHAR_TOF = "0000ff04-0000-1000-8000-00805f9b34fb";
+    const CHAR_BATTERY = "0000ff05-0000-1000-8000-00805f9b34fb";
+    const CHAR_LED = "0000ff06-0000-1000-8000-00805f9b34fb";
+    const CHAR_BUZZ = "0000ff07-0000-1000-8000-00805f9b34fb";
+    const CHAR_STATUS = "0000ff09-0000-1000-8000-00805f9b34fb";
+
+    // Dual device support - Tracker and Beacon
+    let trackerDevice = null;
+    let trackerServer = null;
+    let trackerService = null;
+    let trackerConnected = false;
+
+    let beaconDevice = null;
+    let beaconServer = null;
+    let beaconService = null;
+    let beaconConnected = false;
+
+    // Legacy single device reference (for backward compatibility)
+    let device = null;
+    let server = null;
+    let service = null;
+
+    // Data source priority: 'tracker' (direct) or 'beacon' (relay)
+    let activeDataSource = null;
+
+    let map, anchorLatLng, deviceLatLng;
+    let anchorMarker, deviceMarker, fenceCircle, uncertaintyCircle;
+    let movementTrail = null;  // Polyline showing recent movement
+    let trailPositions = [];   // Array of recent positions
+    const MAX_TRAIL_POINTS = 50000; // High capacity for long-term tracking
+
+    // Anchor Trail (Blue)
+    let anchorTrailPositions = [];
+    let anchorTrail = null;
+
+    // Real Movement Stats (Persistent & Protected)
+    let realTotalDist = 0;
+    let realTotalDur = 0;
+    let realIsMoving = false;
+    let realLastMoveTs = null;
+    let realHasBreached = false;
+
+
+
+    let totalRealBreaches = 0; // Cumulative real-world breaches
+    let idleResetTimer = null;
+
+    function getDistance(lat1, lon1, lat2, lon2) {
+      if (!lat1 || !lon1 || !lat2 || !lon2) return 0;
+      const R = 6371e3; // meters
+      const φ1 = lat1 * Math.PI / 180;
+      const φ2 = lat2 * Math.PI / 180;
+      const Δφ = (lat2 - lat1) * Math.PI / 180;
+      const Δλ = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+        Math.cos(φ1) * Math.cos(φ2) *
+        Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+
+    function formatDuration(seconds) {
+      const h = Math.floor(seconds / 3600);
+      const m = Math.floor((seconds % 3600) / 60);
+      const s = Math.floor(seconds % 60);
+      return [h, m, s].map(v => v < 10 ? "0" + v : v).join(":");
+    }
+
+    function updateStatsUI() {
+      const distEl = document.getElementById("statsDistance");
+      const durEl = document.getElementById("statsDuration");
+      const card = document.getElementById("movementStatsCard");
+
+      // REAL TRACKING ONLY
+      let currentDur = realTotalDur;
+      let isMoving = realIsMoving;
+      let lastMoveTs = realLastMoveTs;
+      let totalDist = realTotalDist;
+
+      if (isMoving && lastMoveTs) {
+        currentDur += (Date.now() - lastMoveTs) / 1000;
+      }
+
+      if (distEl) distEl.textContent = `${totalDist.toFixed(2)} m`;
+      if (durEl) durEl.textContent = formatDuration(currentDur);
+
+      // Clean up map disclaimer if it exists (legacy)
+      const mapDisclaimer = document.getElementById("mapDisclaimer");
+      if (mapDisclaimer) mapDisclaimer.style.display = "none";
+
+      // Card styling
+      if (card) {
+        card.classList.remove("card-safe", "card-danger");
+
+        // Real tracking color logic
+        const isBreach = document.getElementById("geoAlert") && document.getElementById("geoAlert").style.display === "flex";
+        if (isBreach) {
+          card.classList.add("card-danger");
+        } else if (deviceLatLng) {
+          card.classList.add("card-safe");
+        }
+      }
+    }
+
+    function showGenericConfirm(message, onConfirm) {
+      const modal = document.getElementById("genericConfirmModal");
+      const messageEl = document.getElementById("genericConfirmMessage");
+      const okBtn = document.getElementById("genericConfirmOk");
+      const cancelBtn = document.getElementById("genericConfirmCancel");
+      if (!modal || !messageEl || !okBtn || !cancelBtn) {
+        if (confirm(message)) onConfirm();
+        return;
+      }
+      messageEl.innerHTML = `<strong>${message}</strong>`;
+      modal.style.display = "block";
+      okBtn.onclick = () => { modal.style.display = "none"; onConfirm(); };
+      cancelBtn.onclick = () => { modal.style.display = "none"; };
+    }
+
+    // ===================================================================
+    // SEPARATED LOGGING FUNCTIONS (ZERO FUSION)
+    // ===================================================================
+
+    // 1. REAL TRACKING LOGGING (Strict security logic)
+    function logRealSession() {
+      const logContainer = document.getElementById("movementLog");
+      if (!logContainer) return;
+
+      // Finalize duration
+      if (realIsMoving && realLastMoveTs) {
+        realTotalDur += (Date.now() - realLastMoveTs) / 1000;
+        realLastMoveTs = Date.now();
+        realIsMoving = false;
+      }
+
+      // Minimum distance check
+      if (realTotalDist < 0.1) return;
+
+      // Clear ONLY if it's the "No movement history" placeholder
+      if (logContainer.children.length > 0 && logContainer.textContent.includes("No movement history")) {
+        logContainer.innerHTML = "";
+      }
+
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+      // Create log entry
+      const entry = document.createElement("div");
+      entry.className = "log-entry";
+
+
+      // Scrollable list styling is handled by CSS on the container
+      entry.style.cssText = "display: flex; justify-content: space-between; align-items: flex-start; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 0.85rem; position: relative; transition: opacity 0.3s;";
+
+      const fenceStatus = realHasBreached
+        ? '<div style="color:var(--danger); font-size:0.75rem; font-weight:700;">🚨 GEO-FENCE BREACH DETECTED</div>'
+        : '<div style="color:var(--success); font-size:0.75rem; font-weight:700;">🛡️ SECURE: Movement was within geo-fence area</div>';
+
+      entry.innerHTML = `
+        <div style="flex: 1;">
+          <div><strong style="color:var(--accent);">Summary:</strong> ${realTotalDist.toFixed(2)}m</div>
+          <div class="muted">${formatDuration(realTotalDur)} @ ${timeStr}</div>
+          ${fenceStatus}
+        </div>
+        <button class="remove-log-btn" style="background:none; border:none; color:var(--muted); cursor:pointer; font-size:1.2rem; padding:0 5px; line-height:1;">&times;</button>
+      `;
+
+      // Surgical Reset (REAL ONLY)
+      realHasBreached = false;
+      realTotalDist = 0;
+      realTotalDur = 0;
+      realLastMoveTs = null;
+      realIsMoving = false;
+
+      updateStatsUI();
+
+      // Removal Logic (Real = Confirmation Required)
+      const removeBtn = entry.querySelector(".remove-log-btn");
+      removeBtn.onclick = () => {
+        showGenericConfirm("Are you sure you want to remove this movement log? This CANNOT be RESTORED.", () => {
+          entry.style.opacity = "0";
+          setTimeout(() => entry.remove(), 300);
+        });
+      };
+
+      logContainer.prepend(entry);
+      // Allow "scrollable list of log history"
+    }
+
+    // Simplified Log Function
+    function addMovementSummaryToLog() {
+      logRealSession();
+    }
+
+    function logRealBreach(dist) {
+
+      const logContainer = document.getElementById("realBreachLog");
+      const countEl = document.getElementById("realBreachCount");
+      if (!logContainer) return;
+
+      if (logContainer.querySelector(".muted")) logContainer.innerHTML = "";
+
+      totalRealBreaches++;
+      if (countEl) countEl.textContent = `${totalRealBreaches} Total`;
+
+      const now = new Date();
+      const dateStr = now.toLocaleDateString([], { month: 'short', day: 'numeric' });
+      const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+      const entry = document.createElement("div");
+      entry.className = "log-entry";
+      entry.style.cssText = "padding: 8px 0; border-bottom: 1px solid rgba(239, 68, 68, 0.1); font-size: 0.8rem; display: flex; justify-content: space-between; align-items: center; color: var(--danger); animation: slideInX 0.4s ease-out;";
+
+      entry.innerHTML = `
+        <span><strong>⚠️ Breach:</strong> ${dist.toFixed(1)}m</span>
+        <span class="muted" style="font-size: 0.7rem;">${dateStr}, ${timeStr}</span>
+      `;
+
+      logContainer.prepend(entry);
+    }
+
+    // ===================================================================
+    // FIXED CONFIGURATION - Ultra-stable tracking parameters
+    // ===================================================================
+
+    function resetRealIdleTimer() {
+      idleResetTimer = setTimeout(() => {
+        // Only trigger if we are NOT currently considered moving
+        if (!realIsMoving) {
+          logRealSession(); // AUTOMATED LOG: Save current session
+          console.log("Real stats auto-logged due to 2.5s idle");
+        }
+      }, 2500); // 2.5 second threshold
+    }
+
+    // Dead zone: Ignore movements smaller than this (meters)
+    // Set to 1m for more responsive tracking while filtering GPS noise
+    const MOVEMENT_DEAD_ZONE = 1.0;
+
+    // Buffer sizes for averaging
+    const DISTANCE_BUFFER_SIZE = 10;
+    const RSSI_HISTORY_SIZE = 15;
+
+    // Map update throttling (milliseconds)
+    // Map update throttling (milliseconds)
+    const MAP_UPDATE_INTERVAL = 1000;
+
+    // Motion detection thresholds
+    const MOTION_THRESHOLD = 0.25;
+    const RSSI_MOVEMENT_THRESHOLD = 6;
+
+    // Position lock parameters
+    const POSITION_LOCK_TIME = 3000;
+    // Require 2 seconds of sustained movement > 1m before updating position
+    const MOVEMENT_CONFIRM_TIME = 2000;
+
+    // Debug logging
+    const DEBUG_LOGGING = false;
+
+    // ===================================================================
+    // STATE VARIABLES
+    // ===================================================================
+
+    let iphoneTrackingInterval = null;
+    let rssiMonitoringInterval = null;
+    let lastRSSI = null;
+    let rssiHistory = [];
+    let isIPhoneMode = false;
+    let isTrackingActive = false;  // Whether tracking is currently running
+
+
+    // CRITICAL: Stable position tracking
+    let lastStablePosition = null;
+    let positionLockedAt = null;
+    let lastConfirmedMovement = 0;
+
+    // Distance tracking
+    let lockedDistance = null;
+    let distanceBuffer = [];
+    let lastMapUpdate = 0;
+    let currentDeviceBearing = 0; // State variable for radial positioning bearing
+    let authorizedTrackerDevice = null; // Store for one-click reconnect
+    let lastGpsTimestamp = 0; // New: track when we last got real GPS/WiFi coords
+    let lastTrackerDataTime = 0; // [WATCHDOG] Track activity for hardware-pull detection
+    let lastBeaconDataTime = 0;  // [WATCHDOG]
+
+    // Motion state
+    let isDeviceMoving = false;
+    let movementStartTime = null;
+    let lastMotionUpdate = 0;
+
+    // Device type flags
+    let isSamsungDevice = false;
+    let isAndroidDevice = false;
+    let isGalaxyS23 = false; // Specific flag for S23 series optimization
+    let isLaptop = false; // Flag for identification
+
+    // Kalman filter instance
+    let kalmanFilter = null;
+
+    // Battery tracking with real timing
+    let batteryHistory = [];
+    let batteryStartTime = null;
+    let batteryStartLevel = null;
+    let lastBatteryUpdate = 0;
+
+    // Sensor state
+    let confirmedPresence = false;
+    let confirmedDistance = null;
+    let lastSensorUpdate = 0;
+
+    const connectTrackerBtn = document.getElementById("connectTrackerBtn");
+    const connectBeaconBtn = document.getElementById("connectBeaconBtn");
+    const disconnectAllBtn = document.getElementById("disconnectAllBtn");
+
+    const forgetBtn = document.getElementById("forgetBtn");
+    const startTrackingBtn = document.getElementById("startTrackingBtn");
+
+    const buzzBtn = document.getElementById("buzzBtn");
+    const setLedBtn = document.getElementById("setLedBtn");
+    const ledColor = document.getElementById("ledColor");
+    const roomSize = document.getElementById("roomSize");
+    const beaconRoomSize = document.getElementById("beaconRoomSize");
+    const fenceToggle = document.getElementById("fenceToggle");
+    const fenceState = document.getElementById("fenceState");
+    const locateBtn = document.getElementById("locateBtn");
+    const manualAnchorBtn = document.getElementById("manualAnchorBtn");
+    const clickToSetBtn = document.getElementById("clickToSetBtn");
+    const clearTrailBtn = document.getElementById("clearTrailBtn");
+    const zoomInBtn = document.getElementById("zoomInBtn");
+    const zoomOutBtn = document.getElementById("zoomOutBtn");
+    const zoomMaxBtn = document.getElementById("zoomMaxBtn");
+    const anchorAccuracy = document.getElementById("anchorAccuracy");
+    const accuracyPill = document.getElementById("accuracyPill");
+    const connectionStatus = document.getElementById("connectionStatus");
+
+    // Anchor location state
+    let anchorWatchId = null;
+    let clickToSetMode = false;
+    let anchorAccuracyMeters = null;
+
+    // Remember last connected device
+    let lastConnectedDeviceId = localStorage.getItem('lastConnectedDeviceId') || null;
+    let lastConnectedDeviceType = localStorage.getItem('lastConnectedDeviceType') || null;
+
+    const batteryText = document.getElementById("batteryText");
+    const batteryEta = document.getElementById("batteryEta");
+    const motionText = document.getElementById("motionText");
+    const fallMeta = document.getElementById("fallMeta");
+    const radarText = document.getElementById("radarText");
+    const tofText = document.getElementById("tofText");
+    const anchorLatLon = document.getElementById("anchorLatLon");
+    const deviceLatLon = document.getElementById("deviceLatLon");
+    const geoAlert = document.getElementById("geoAlert");
+
+    let fallCount = 0;
+    let notificationsAllowed = false;
+    let audioCtx;
+    let fenceBreachNotified = false;
+    let lowBatteryNotified = false;
+
+    // Notification System
+    const notifToggleBtn = document.getElementById("notifToggleBtn");
+    const notifPanel = document.getElementById("notifPanel");
+    const notifList = document.getElementById("notifList");
+    const notifBadge = document.getElementById("notifBadge");
+    const clearNotifs = document.getElementById("clearNotifs");
+
+    notifToggleBtn.addEventListener("click", () => {
+      notifPanel.style.display = notifPanel.style.display === "none" ? "block" : "none";
+      notifBadge.style.display = "none";
+      // Request permission on first open
+      if (Notification.permission === "default") {
+        Notification.requestPermission();
+      }
+    });
+
+    clearNotifs.addEventListener("click", () => {
+      const hasRealNotifs = Array.from(notifList.children).some(item => !item.classList.contains('muted'));
+      const doClear = () => {
+        notifList.innerHTML = '<div class="muted" style="text-align:center; padding:20px;">No new notifications</div>';
+        notifBadge.style.display = "none";
+      };
+
+      if (hasRealNotifs) {
+        showGenericConfirm("Are you sure you want to remove these notifications? This CANNOT be RESTORED.", doClear);
+      } else {
+        doClear();
+      }
+    });
+
+    function logNotification(title, message, type = "info") {
+      let finalTitle = title;
+      let finalMessage = message;
+
+      // 2. Add to Internal List
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+      // Remove "No notifications" placeholder if exists
+      if (notifList.children.length === 1 && notifList.children[0].classList.contains("muted")) {
+        notifList.innerHTML = "";
+      }
+
+      const item = document.createElement("div");
+      item.className = "notif-item";
+      item.style.cssText = "background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px; font-size: 0.85rem; border-left: 3px solid " + (type === "danger" ? "var(--danger)" : "var(--accent)") + "; position: relative; margin-bottom: 8px; animation: slideIn 0.3s ease-out;";
+
+
+
+      item.innerHTML = `
+        <div style="display:flex; justify-content:space-between; margin-bottom:4px; padding-right: 20px;">
+          <strong style="color:white;">${finalTitle}</strong>
+          <span class="muted" style="font-size:0.75rem;">${timeStr}</span>
+        </div>
+        <div style="color:var(--muted);">${finalMessage}</div>
+        <button class="notif-close" style="position: absolute; top: 5px; right: 8px; background: none; border: none; color: var(--muted); cursor: pointer; font-size: 1.2rem; padding: 0 5px;" title="Dismiss">&times;</button>
+      `;
+
+      item.querySelector(".notif-close").addEventListener("click", () => {
+        showGenericConfirm("Are you sure you want to remove this notification? This CANNOT be RESTORED.", () => {
+          item.style.opacity = "0";
+          item.style.transform = "translateX(20px)";
+          setTimeout(() => {
+            item.remove();
+            if (notifList.children.length === 0) {
+              notifList.innerHTML = '<div class="muted" style="text-align:center; padding:20px;">No new notifications</div>';
+            }
+          }, 300);
+        });
+      });
+
+      notifList.prepend(item);
+      notifBadge.style.display = "block";
+
+      // 3. Browser System Notification
+      if (Notification.permission === "granted") {
+        new Notification(finalTitle, {
+          body: finalMessage,
+          icon: 'https://cdn-icons-png.flaticon.com/512/2529/2529521.png'
+        });
+      }
+    }
+
+    // ===================================================================
+    // IMPROVED KALMAN FILTER - More aggressive smoothing
+    // ===================================================================
+    class KalmanFilter {
+      constructor(R = 0.001, Q = 0.5) {
+        this.R = R; // measurement noise (lower = trust measurements less)
+        this.Q = Q; // process noise (lower = smoother output)
+        this.x = null;
+        this.cov = 1;
+      }
+
+      filter(measurement) {
+        if (this.x === null) {
+          this.x = measurement;
+          return this.x;
+        }
+
+        // Prediction
+        const predX = this.x;
+        const predCov = this.cov + this.Q;
+
+        // Update
+        const K = predCov / (predCov + this.R);
+        this.x = predX + K * (measurement - predX);
+        this.cov = (1 - K) * predCov;
+
+        return this.x;
+      }
+
+      reset() {
+        this.x = null;
+        this.cov = 1;
+      }
+
+      getValue() {
+        return this.x;
+      }
+    }
+
+    // ===================================================================
+    // MAP INITIALIZATION
+    // ===================================================================
+    function initMap() {
+      if (typeof L === 'undefined') {
+        console.error('Leaflet library not loaded');
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js';
+        script.onload = () => initMap();
+        script.onerror = () => alert('Failed to load map library.');
+        document.head.appendChild(script);
+        return;
+      }
+
+      const defaultPos = [14.5995, 120.9842];
+
+      try {
+        map = L.map('map', {
+          zoomControl: false,  // We have our own zoom buttons
+          minZoom: 2,
+          maxZoom: 22  // Allow very high zoom
+        }).setView(defaultPos, 18);
+
+        // Use CartoDB tiles which support higher zoom with better detail
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+          attribution: '© OpenStreetMap contributors, © CARTO',
+          maxZoom: 22,
+          maxNativeZoom: 19  // Tiles go to 19, but we can overzoom to 22
+        }).addTo(map);
+
+        anchorLatLng = { lat: defaultPos[0], lng: defaultPos[1] };
+        anchorLatLon.textContent = "Not set - click 'Auto-locate', 'Set manually', or drag the marker";
+
+        const anchorIcon = L.divIcon({
+          className: 'custom-marker',
+          html: `<div style="position: relative; width: 30px; height: 30px;">
+            <div class="anchor-marker-pulse"></div>
+            <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: #22d3ee; width: 18px; height: 18px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 10px rgba(0,0,0,0.4); cursor: move;" title="Drag to adjust position"></div>
+          </div>`,
+          iconSize: [30, 30],
+          iconAnchor: [15, 15]
+        });
+
+        anchorMarker = L.marker(defaultPos, {
+          icon: anchorIcon,
+          zIndexOffset: 500, // Above tiles, below device marker
+          title: "Anchor (this device) - drag to reposition"
+        }).addTo(map);
+
+        // Enable dragging on anchor marker for fine adjustment
+        anchorMarker.dragging.enable();
+        anchorMarker.on('dragend', function (e) {
+          const pos = e.target.getLatLng();
+          anchorLatLng = { lat: pos.lat, lng: pos.lng };
+          anchorAccuracyMeters = 1;
+
+          // Update visual text
+          anchorLatLon.textContent = `${pos.lat.toFixed(6)}, ${pos.lng.toFixed(6)} (dragged)`;
+          accuracyPill.style.display = "inline-block";
+          anchorAccuracy.textContent = "±1m (dragged)";
+          anchorAccuracy.style.color = "var(--success)";
+
+
+          // anchorTrailPositions.push(anchorPos);
+
+          updateFenceCircle();
+        });
+
+        // Update both buttons on connection state change (legacy)
+        updateConnectionButtons(false);
+
+        // [AUTOMATIC] Setup anchor on load
+        setupTrackingAnchor();
+      } catch (e) {
+        console.error('Error initializing map:', e);
+      }
+    }
+
+    function computeDistanceMeters(a, b) {
+      const R = 6371000;
+      const toRad = (deg) => (deg * Math.PI) / 180;
+      const dLat = toRad(b.lat - a.lat);
+      const dLng = toRad(b.lng - a.lng);
+      const lat1 = toRad(a.lat);
+      const lat2 = toRad(b.lat);
+      const sinDLat = Math.sin(dLat / 2);
+      const sinDLng = Math.sin(dLng / 2);
+      const h = sinDLat * sinDLat + Math.cos(lat1) * Math.cos(lat2) * sinDLng * sinDLng;
+      return 2 * R * Math.asin(Math.sqrt(h));
+    }
+
+    async function setAnchorFromBrowser() {
+      if (!navigator.geolocation) {
+        anchorLatLng = { lat: 14.5995, lng: 120.9842 };
+        anchorLatLon.textContent = "Geolocation not supported";
+        return;
+      }
+
+      // Stop any existing watch
+      if (anchorWatchId !== null) {
+        navigator.geolocation.clearWatch(anchorWatchId);
+        anchorWatchId = null;
+      }
+
+      try {
+        // First, get a quick position
+        locateBtn.textContent = "Locating...";
+
+        const pos = await new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 15000,
+            maximumAge: 0
+          });
+        });
+
+        updateAnchorPosition(pos);
+
+        // Then start watching for better accuracy
+
+        // We only get location ONCE when button is clicked.
+        // anchorWatchId = navigator.geolocation.watchPosition(...);
+
+      } catch (e) {
+        console.error("Geolocation error:", e);
+        anchorLatLng = { lat: 14.5995, lng: 120.9842 };
+
+        let errorMsg = "Location error";
+        if (e.code === 1) errorMsg = "Permission denied";
+        else if (e.code === 2) errorMsg = "Position unavailable";
+        else if (e.code === 3) errorMsg = "Timeout";
+
+        anchorLatLon.textContent = `${errorMsg} - click "Set manually" or "Click on map"`;
+        updateFenceCircle();
+      } finally {
+        locateBtn.textContent = "Auto-locate";
+      }
+    }
+
+    function updateAnchorPosition(pos) {
+      if (!pos || !pos.coords) return;
+
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+      const accuracy = pos.coords.accuracy;
+
+      // DRIFT FILTER: 
+      // If we already have a position, ignore updates smaller than 1.0 meter
+      if (anchorLatLng && !clickToSetMode) {
+        const dist = computeDistanceMeters(anchorLatLng, { lat, lng });
+        if (dist < 1.0) {
+          return;
+        }
+      }
+
+      anchorLatLng = {
+        lat: lat,
+        lng: lng,
+      };
+
+      anchorAccuracyMeters = accuracy;
+
+      const anchorPos = [anchorLatLng.lat, anchorLatLng.lng];
+
+      if (anchorMarker) {
+        anchorMarker.setLatLng(anchorPos);
+      }
+
+
+
+      anchorLatLon.textContent = `${anchorLatLng.lat.toFixed(6)}, ${anchorLatLng.lng.toFixed(6)}`;
+
+      // Show accuracy
+      accuracyPill.style.display = "inline-block";
+      if (anchorAccuracyMeters < 10) {
+        anchorAccuracy.textContent = `±${anchorAccuracyMeters.toFixed(0)}m (excellent)`;
+        anchorAccuracy.style.color = "var(--success)";
+      } else if (anchorAccuracyMeters < 30) {
+        anchorAccuracy.textContent = `±${anchorAccuracyMeters.toFixed(0)}m (good)`;
+        anchorAccuracy.style.color = "var(--accent)";
+      } else if (anchorAccuracyMeters < 100) {
+        anchorAccuracy.textContent = `±${anchorAccuracyMeters.toFixed(0)}m (fair)`;
+        anchorAccuracy.style.color = "var(--muted)";
+      } else {
+        anchorAccuracy.textContent = `±${anchorAccuracyMeters.toFixed(0)}m (poor - set manually)`;
+        anchorAccuracy.style.color = "var(--danger)";
+      }
+
+      map.setView(anchorPos, 18);
+      updateFenceCircle();
+
+      console.log(`Anchor updated: ${anchorLatLng.lat.toFixed(6)}, ${anchorLatLng.lng.toFixed(6)} (±${anchorAccuracyMeters.toFixed(0)}m)`);
+    }
+
+    function setAnchorManually() {
+      const currentLat = anchorLatLng ? anchorLatLng.lat.toFixed(6) : "14.5995";
+      const currentLng = anchorLatLng ? anchorLatLng.lng.toFixed(6) : "120.9842";
+
+      const input = prompt(
+        `Enter your exact coordinates:\n\n` +
+        `Current: ${currentLat}, ${currentLng}\n\n` +
+        `Format: latitude, longitude\n` +
+        `Example: 14.599512, 120.984215\n\n` +
+        `Tip: You can get coordinates from Google Maps by right-clicking on your location.`,
+        `${currentLat}, ${currentLng}`
+      );
+
+      if (!input) return;
+
+      // Parse coordinates
+      const parts = input.split(',').map(s => s.trim());
+      if (parts.length !== 2) {
+        alert("Invalid format. Please enter: latitude, longitude");
+        return;
+      }
+
+      const lat = parseFloat(parts[0]);
+      const lng = parseFloat(parts[1]);
+
+      if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+        alert("Invalid coordinates. Latitude must be -90 to 90, longitude -180 to 180.");
+        return;
+      }
+
+      // Update anchor
+      anchorLatLng = { lat, lng };
+      anchorAccuracyMeters = 1; // Manual entry is precise
+
+      const anchorPos = [lat, lng];
+      if (anchorMarker) {
+        anchorMarker.setLatLng(anchorPos);
+      }
+
+      anchorLatLon.textContent = `${lat.toFixed(6)}, ${lng.toFixed(6)} (manual)`;
+      accuracyPill.style.display = "inline-block";
+      anchorAccuracy.textContent = "±1m (manual)";
+      anchorAccuracy.style.color = "var(--success)";
+
+      map.setView(anchorPos, 18);
+      updateFenceCircle();
+
+      alert(`Anchor set to:\n${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+    }
+
+    // ===================================================================
+    // DRAW FENCE INTERACTION
+    // ===================================================================
+    let drawState = 'idle'; // idle, center, radius
+    let tempCircle = null;
+
+    function enableClickToSet() {
+      if (drawState !== 'idle') {
+        // Cancel Drawing
+        drawState = 'idle';
+        clickToSetBtn.textContent = "✍️ Draw Fence Zone";
+        clickToSetBtn.style.background = "";
+        clickToSetBtn.className = "btn"; // Reset animation
+        map.getContainer().style.cursor = "";
+
+        if (tempCircle) {
+          map.removeLayer(tempCircle);
+          tempCircle = null;
+        }
+        updateFenceCircle(); // Restore original
+        return;
+      }
+
+      // Start Drawing: Step 1 (Center)
+      drawState = 'center';
+      clickToSetBtn.textContent = "Click Center Point (Cancel)";
+      clickToSetBtn.style.background = "var(--accent)";
+      clickToSetBtn.className = "btn btn-pulse";
+      map.getContainer().style.cursor = "crosshair";
+
+      // Hide real fence temporarily to avoid confusion
+      if (fenceCircle) fenceCircle.setStyle({ opacity: 0.2, fillOpacity: 0.05 });
+    }
+
+    function handleMapClick(e) {
+      if (drawState === 'idle') return;
+
+      const lat = e.latlng.lat;
+      const lng = e.latlng.lng;
+
+      if (drawState === 'center') {
+        // Step 1: Set Center
+        anchorLatLng = { lat, lng };
+        const anchorPos = [lat, lng];
+
+        if (anchorMarker) anchorMarker.setLatLng(anchorPos);
+
+        // UI Feedback
+        anchorLatLon.textContent = `${lat.toFixed(6)}, ${lng.toFixed(6)} (Drawing...)`;
+
+        // Move to Step 2: Radius
+        drawState = 'radius';
+        clickToSetBtn.textContent = "Drag & Click to Set Size";
+        clickToSetBtn.style.background = "var(--success)";
+
+        // Create temp visual circle starting at 1m
+        if (tempCircle) map.removeLayer(tempCircle);
+        tempCircle = L.circle(anchorPos, {
+          radius: 1,
+          color: "#22c55e",
+          dashArray: "5, 5",
+          fillColor: "#22c55e",
+          fillOpacity: 0.2
+        }).addTo(map);
+
+      } else if (drawState === 'radius') {
+        // Step 2: Confirm Radius
+        if (!tempCircle) return;
+
+        const r = tempCircle.getRadius();
+        const diameter = r * 2;
+
+        // Update Inputs
+        if (activeDataSource === 'beacon') {
+          beaconRoomSize.value = diameter.toFixed(1);
+        } else {
+          roomSize.value = diameter.toFixed(1);
+        }
+
+        // Finalize
+        drawState = 'idle';
+        clickToSetBtn.textContent = "✍️ Draw Fence Zone";
+        clickToSetBtn.style.background = "";
+        clickToSetBtn.className = "btn";
+        map.getContainer().style.cursor = "";
+
+        if (tempCircle) {
+          map.removeLayer(tempCircle);
+          tempCircle = null;
+        }
+
+        updateFenceCircle();
+
+        // Force sync logic AND check for immediate breach of new fence
+        console.log("Fence Drawn - Re-evaluating Breach Status");
+        checkFence();
+      }
+    }
+
+    function handleMapMouseMove(e) {
+      if (drawState !== 'radius' || !anchorLatLng || !tempCircle) return;
+
+      // Dynamic Radius Updating
+      const dist = computeDistanceMeters(anchorLatLng, { lat: e.latlng.lat, lng: e.latlng.lng });
+      tempCircle.setRadius(dist);
+
+      // Update Button Text with live radius
+      clickToSetBtn.textContent = `Set Radius: ${dist.toFixed(1)}m (Click to Save)`;
+    }
+
+    function updateFenceCircle() {
+      const activeSizeInput = (activeDataSource === 'beacon') ? beaconRoomSize : roomSize;
+      const radius = (Number(activeSizeInput.value) || 6) * 0.5;
+      if (!anchorLatLng || !map) return;
+
+      const center = [anchorLatLng.lat, anchorLatLng.lng];
+
+      if (!fenceCircle) {
+        fenceCircle = L.circle(center, {
+          radius: radius,
+          color: "#3b82f6",
+          fillColor: "#3b82f6",
+          fillOpacity: 0.1,
+          weight: 2,
+          opacity: 0.7
+        }).addTo(map);
+      } else {
+        fenceCircle.setLatLng(center);
+        fenceCircle.setRadius(radius);
+      }
+    }
+
+    function showAlert(show) {
+      if (show) {
+        if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+      }
+      geoAlert.style.display = show ? "flex" : "none";
+    }
+    function dismissAlert() { showAlert(false); }
+
+    async function ensureNotificationPermission() {
+      if (!("Notification" in window)) return;
+      if (Notification.permission === "granted") {
+        notificationsAllowed = true;
+        return;
+      }
+      if (Notification.permission !== "denied") {
+        const perm = await Notification.requestPermission();
+        notificationsAllowed = perm === "granted";
+      }
+    }
+
+    function playBeep() {
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = "square";
+        osc.frequency.value = 880;
+        gain.gain.value = 0.15;
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        setTimeout(() => { osc.stop(); }, 300);
+      } catch (e) { }
+    }
+
+    // ===================================================================
+    // ALARM SYSTEM (Siren & Voice)
+    // ===================================================================
+    let alarmInterval = null;
+    let cachedVoice = null; // Caches the voice to prevent "jumping"
+
+    // Pre-load and lock the voice immediately to prevent "voice jumping"
+    function initVoice() {
+      if (!('speechSynthesis' in window)) return;
+      const voices = window.speechSynthesis.getVoices();
+      if (voices.length > 0 && !cachedVoice) {
+        // Lock onto a high-quality human voice (Samantha/Victoria are best on Mac)
+        cachedVoice = voices.find(v =>
+          v.name.includes("Samantha") ||
+          v.name.includes("Victoria") ||
+          v.name.includes("Google US English")
+        ) || voices[0];
+      }
+    }
+
+    // Initialize voices as soon as they are ready
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.onvoiceschanged = initVoice;
+      initVoice();
+    }
+
+    function playVoiceAlert() {
+      if (!('speechSynthesis' in window)) return;
+
+      // Only play if the alert banner is visible
+      const geoAlert = document.getElementById("geoAlert");
+      if (!geoAlert || geoAlert.style.display !== "flex") return;
+
+      // Cancel any existing speech to avoid robotic queuing
+      window.speechSynthesis.cancel();
+
+      // Pronunciation fix: use "area" instead of "location"
+      const msgText = "Attention. Patient has left the designated Geo-Fence area. Please check on patient immediately.";
+      const msg = new SpeechSynthesisUtterance(msgText);
+
+      // Human-like speed and pitch
+      msg.rate = 0.82;
+      msg.pitch = 1.0;
+      msg.volume = 1.0;
+
+      // Use the locked voice for every loop
+      if (!cachedVoice) initVoice();
+      if (cachedVoice) msg.voice = cachedVoice;
+
+      // Loop the voice alert if the banner is still visible
+      msg.onend = () => {
+        if (geoAlert.style.display === "flex") {
+          // 2-second pause between repeats to feel less frantic
+          setTimeout(playVoiceAlert, 2000);
+        }
+      };
+
+      window.speechSynthesis.speak(msg);
+    }
+
+
+    function playSiren() {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+
+      const osc = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+
+      osc.type = 'sawtooth'; // Aggressive sound
+      osc.frequency.setValueAtTime(880, audioCtx.currentTime); // Start High
+      osc.frequency.linearRampToValueAtTime(440, audioCtx.currentTime + 0.5); // Sweep Low
+
+      gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+      gainNode.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+
+      osc.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.6);
+    }
+
+    function startAlarm() {
+      if (alarmInterval) return; // Already running
+      playSiren(); // Play immediate siren
+      playVoiceAlert(); // Play immediate voice
+      alarmInterval = setInterval(() => {
+        playSiren();
+      }, 800); // Siren loops every 0.8s
+    }
+
+    function stopAlarm() {
+      if (alarmInterval) {
+        clearInterval(alarmInterval);
+        alarmInterval = null;
+      }
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel(); // Stop any ongoing voice alert
+      }
+    }
+
+    function dismissAlert() {
+      stopAlarm();
+      const geoAlert = document.getElementById("geoAlert");
+      geoAlert.style.display = "none";
+    }
+
+    // ===================================================================
+    // MAP MARKER ICONS
+    // ===================================================================
+    function getDeviceIcon(isOutside) {
+      const colorClass = isOutside ? 'danger' : 'safe';
+      const mainColor = isOutside ? '#ef4444' : '#22c55e';
+      const secondColor = isOutside ? '#dc2626' : '#16a34a';
+      const iconChar = isOutside ? '!' : '✓';
+      const shadowColor = isOutside ? 'rgba(239, 68, 68, 0.8)' : 'rgba(34, 197, 94, 0.6)';
+      const pulseColor = isOutside ? 'rgba(239, 68, 68, 0.6)' : 'rgba(34, 197, 94, 0.4)';
+
+      return L.divIcon({
+        className: `custom-marker device-marker-${colorClass}`,
+        html: `<div style="position: relative; width: 30px; height: 30px;">
+          <div class="device-marker-pulse" style="background: ${pulseColor}; ${isOutside ? 'animation-duration: 0.5s;' : ''}"></div>
+          <div class="device-marker-inner" style="background: linear-gradient(135deg, ${mainColor}, ${secondColor}); display:flex; align-items:center; justify-content:center; color:white; font-weight:bold; font-size:${isOutside ? '18px' : '14px'}; box-shadow: 0 0 10px ${shadowColor};">${iconChar}</div>
+        </div>`,
+        iconSize: [30, 30],
+        iconAnchor: [15, 15]
+      });
+    }
+
+    function triggerSystemAlert(title, body, isCritical = false) {
+      // Log to UI first
+      logNotification(title, body, isCritical ? "danger" : "warning");
+
+      // Allow sound to play even if notif fails
+      // But we separate sound logic now
+      if (notificationsAllowed && Notification.permission === "granted") {
+        new Notification(title, { body, requireInteraction: true });
+      }
+    }
+
+    async function checkFence(forceDistance = null) {
+      if (!fenceToggle.checked || !anchorLatLng) {
+        fenceState.textContent = "Fence: idle";
+        fenceState.style.color = "inherit";
+        return;
+      }
+
+      // Determine Distance (GPS vs RSSI Override)
+      let dist;
+      if (forceDistance !== null) {
+        dist = forceDistance;
+      } else if (deviceLatLng) {
+        dist = computeDistanceMeters(anchorLatLng, deviceLatLng);
+      } else {
+        return; // No location data
+      }
+
+      const activeSizeInput = (activeDataSource === 'beacon') ? beaconRoomSize : roomSize;
+      const radius = (Number(activeSizeInput.value) || 6) * 0.5;
+      const uncertaintyMargin = isIPhoneMode ? 3 : 0; // Use small margin for phone GPS noise
+      const effectiveRadius = radius + uncertaintyMargin;
+      const outside = dist > effectiveRadius;
+
+      // Ensure stats and logs are updated for Real Tracking
+      if (outside) {
+        fenceState.textContent = `Fence: OUT (${dist.toFixed(1)}m)`;
+        fenceState.style.color = "var(--danger)";
+
+        // Update Marker to Danger
+        if (deviceMarker) deviceMarker.setIcon(getDeviceIcon(true));
+
+        if (!fenceBreachNotified) {
+          showAlert(true);
+          fenceBreachNotified = true;
+
+          let title = "🚨 GEO-FENCE BREACH";
+          let body = `Device left the fence! Distance: ${dist.toFixed(1)}m`;
+
+          // Use the new logging system
+          logNotification(title, body, "danger");
+
+          // NEW: Log specifically to the REAL Breach history card
+          realHasBreached = true;
+          // Ensure we log the breach count and history
+          if (typeof logRealBreach === 'function') logRealBreach(dist);
+
+          // Critical: Update Real Stats immediately
+          if (typeof updateStatsUI === 'function') updateStatsUI();
+          startAlarm();
+        }
+      } else {
+        fenceState.textContent = `Fence: OK (${dist.toFixed(1)}m)`;
+        fenceState.style.color = "var(--success)";
+
+        // Update Marker to Safe
+        if (deviceMarker) deviceMarker.setIcon(getDeviceIcon(false));
+
+        if (dist < radius) {
+          // Reset notified state when back inside
+          fenceBreachNotified = false;
+        }
+      }
+    }
+
+    // ===================================================================
+    // BLE CONNECTION - Single device pairing only
+    // ===================================================================
+    // ===================================================================
+    // DUAL DEVICE CONNECTION LOGIC - REAL TRACKING ONLY
+    // ===================================================================
+
+    // Connect to ESP32-S3 Tracker (or Phone/Laptop)
+    async function connectToTracker(specificDevice = null) {
+      // Check if already connected
+      if (trackerConnected) {
+        if (confirm("Tracker is already connected. Disconnect it?")) {
+          await disconnectTracker();
+        }
+        return;
+      }
+
+      const connectBtn = document.getElementById("connectTrackerBtn");
+      connectBtn.textContent = "Scanning...";
+      connectBtn.disabled = true;
+
+      // Use same filters as original connectBle for broad compatibility
+      const deviceFilters = [
+        // Primary Target (Service UUID is the most reliable filter)
+        { services: [SERVICE_UUID] },
+        { name: 'ESP32-S3-Tracker' },
+        { namePrefix: 'ESP32-S3-Tracker' },
+        { namePrefix: 'ESP32' },
+        { namePrefix: 'esp32' },
+        { namePrefix: 'iPhone' }, { namePrefix: 'iPad' },
+        { namePrefix: 'Samsung' }, { namePrefix: 'Galaxy' }, { namePrefix: 'SAMSUNG' },
+        { namePrefix: 'SM-' }, { namePrefix: 'GT-' }, { namePrefix: 'Tab S' },
+        { namePrefix: 'Pixel' }, { namePrefix: 'OnePlus' }, { namePrefix: 'Xiaomi' },
+        { namePrefix: 'Huawei' }, { namePrefix: 'OPPO' }, { namePrefix: 'Vivo' },
+        { namePrefix: 'Realme' }, { namePrefix: 'Motorola' }, { namePrefix: 'LG' },
+        { namePrefix: 'Sony' }, { namePrefix: 'Nokia' }, { namePrefix: 'HTC' },
+        { namePrefix: 'ASUS' }, { namePrefix: 'Lenovo' },
+        { namePrefix: 'Beacon' }, { namePrefix: 'beacon' },
+        { namePrefix: 'Peripheral' }, { namePrefix: 'nRF' }, { namePrefix: 'LightBlue' }
+      ];
+
+      try {
+        if (specificDevice) {
+          trackerDevice = specificDevice;
+          console.log("Reconnecting to authorized device:", trackerDevice.name);
+        } else {
+          trackerDevice = await navigator.bluetooth.requestDevice({
+            filters: deviceFilters,
+            optionalServices: [
+              SERVICE_UUID,
+              '0000180f-0000-1000-8000-00805f9b34fb', // Battery
+              '0000180a-0000-1000-8000-00805f9b34fb'  // Device Info
+            ]
+          });
+        }
+
+        trackerDevice.addEventListener("gattserverdisconnected", handleDisconnect);
+
+        connectBtn.textContent = "Connecting...";
+        trackerServer = await trackerDevice.gatt.connect();
+
+        // Find Service
+        try {
+          trackerService = await trackerServer.getPrimaryService(SERVICE_UUID);
+        } catch (e) {
+          // Fallback for phones/other apps that might be generic
+          const services = await trackerServer.getPrimaryServices();
+          if (services.length > 0) trackerService = services[0];
+        }
+
+        // Set Global Legacy References for compatibility
+        device = trackerDevice;
+        server = trackerServer;
+        service = trackerService;
+
+        // Update UI
+        trackerConnected = true;
+        activeDataSource = 'tracker'; // Prioritize direct tracker connection
+
+        document.getElementById('trackerStatus').textContent = `📍 Tracker: Connected`;
+        document.getElementById('trackerStatus').style.color = "var(--success)";
+
+        connectBtn.textContent = `📍 Connected: ${trackerDevice.name || 'Tracker'}`;
+        connectBtn.style.background = "linear-gradient(135deg, #22c55e, #16a34a)";
+        connectBtn.disabled = false;
+
+        document.getElementById('disconnectAllBtn').style.display = 'inline-block';
+        document.getElementById('activeSource').textContent = "Direct Tracker";
+        document.getElementById('activeSource').style.color = "var(--success)";
+        document.getElementById('activeSourceIndicator').style.display = 'block';
+
+        // [NEW] One-time Anchor Setup
+        setupTrackingAnchor();
+
+        updateFenceCircle();
+
+        // Subscribe to Notifications
+        if (trackerService) {
+          await subscribeToService(trackerService, 'tracker');
+        }
+
+        // [NEW] Start RSSI Polling for Distance Calculation (since no GPS)
+        startRSSIPolling(trackerDevice, 'tracker');
+
+        // [AUTOMATIC] Start tracking immediately on connection
+        startTracking();
+
+        alert("✓ Tracker Connection Successful!\n\nDirect connection established and tracking started.");
+
+      } catch (err) {
+        console.error("Tracker connection error:", err);
+        const cBtn = document.getElementById("connectTrackerBtn");
+        cBtn.textContent = "📍 Connect Tracker";
+        cBtn.disabled = false;
+        cBtn.style.background = "";
+
+        if (err.name === "NotFoundError") {
+          // User cancelled
+        } else {
+          alert(`Connection failed: ${err.message}`);
+        }
+      }
+    }
+
+    // Connect to BLE 5.0 Beacon (Range Extender)
+    async function connectToBeacon() {
+      // Check if already connected
+      if (beaconConnected) {
+        if (confirm("Beacon is already connected. Disconnect it?")) {
+          await disconnectBeacon();
+        }
+        return;
+      }
+
+      try {
+        if (!navigator.bluetooth) {
+          alert("Web Bluetooth API is not available.");
+          return;
+        }
+
+        const connectBtn = document.getElementById("connectBeaconBtn");
+        connectBtn.textContent = "Scanning...";
+        connectBtn.disabled = true;
+
+        // Filter specifically for beacons/esp32
+        const beaconFilters = [
+          { services: [SERVICE_UUID] },
+          { name: 'ESP32-S3-Tracker' },
+          { namePrefix: 'ESP32' }, { namePrefix: 'Extender' },
+          { namePrefix: 'Anchor' }, { namePrefix: 'Beacon' },
+          { namePrefix: 'iBeacon' }
+        ];
+
+        beaconDevice = await navigator.bluetooth.requestDevice({
+          filters: beaconFilters,
+          optionalServices: [SERVICE_UUID, '0000180f-0000-1000-8000-00805f9b34fb']
+        });
+
+        beaconDevice.addEventListener("gattserverdisconnected", handleDisconnect);
+
+        connectBtn.textContent = "Connecting...";
+        beaconServer = await beaconDevice.gatt.connect();
+
+        try {
+          beaconService = await beaconServer.getPrimaryService(SERVICE_UUID);
+        } catch (e) {
+          const services = await beaconServer.getPrimaryServices();
+          if (services.length > 0) beaconService = services[0];
+        }
+
+        beaconConnected = true;
+
+        // Failover Logic: If tracker is NOT connected, use beacon data
+        if (!trackerConnected) {
+          activeDataSource = 'beacon';
+          document.getElementById('activeSource').textContent = "Beacon Relay";
+          document.getElementById('activeSource').style.color = "var(--accent)";
+          updateFenceCircle();
+        }
+
+        // Update UI
+        document.getElementById('beaconStatus').textContent = `📡 Beacon: Connected`;
+        document.getElementById('beaconStatus').style.color = "var(--success)";
+        document.getElementById('beaconStatusBadge').textContent = "Connected";
+        document.getElementById('beaconStatusBadge').className = "badge success";
+        document.getElementById('activeSourceIndicator').style.display = 'block';
+
+        connectBtn.textContent = `📡 Connected: ${beaconDevice.name || 'Beacon'}`;
+        connectBtn.style.background = "linear-gradient(135deg, #22c55e, #16a34a)";
+        connectBtn.disabled = false;
+
+        document.getElementById('disconnectAllBtn').style.display = 'inline-block';
+
+        // [NEW] One-time Anchor Setup
+        setupTrackingAnchor();
+
+        // Subscribe
+        if (beaconService) {
+          await subscribeToService(beaconService, 'beacon');
+        }
+
+        // [AUTOMATIC] Start tracking immediately on connection
+        startTracking();
+
+        alert("✓ Beacon Connection Successful!\n\nRange extender is now active and tracking started.");
+
+      } catch (err) {
+        console.error("Beacon connection error:", err);
+        const connectBtn = document.getElementById("connectBeaconBtn");
+        connectBtn.textContent = "📡 Connect Beacon";
+        connectBtn.disabled = false;
+        connectBtn.style.background = "";
+
+        if (err.name === "NotFoundError") {
+          // User cancelled
+        } else {
+          alert(`Beacon connection failed: ${err.message}`);
+        }
+      }
+    }
+
+    // Shared Subscription Logic
+    async function subscribeToService(targetService, sourceName) {
+      if (!targetService) return;
+
+      const characteristics = [
+        { uuid: CHAR_LOCATION, name: 'Location' },
+        { uuid: CHAR_MOTION, name: 'Motion' },
+        { uuid: CHAR_RADAR, name: 'Radar' },
+        { uuid: CHAR_TOF, name: 'ToF' },
+        { uuid: CHAR_BATTERY, name: 'Battery' },
+        { uuid: CHAR_STATUS, name: 'Status' }
+      ];
+
+      for (const charInfo of characteristics) {
+        try {
+          const characteristic = await targetService.getCharacteristic(charInfo.uuid);
+          await characteristic.startNotifications();
+          characteristic.addEventListener('characteristicvaluechanged', (event) => {
+            handleDataUpdate(event.target.value, charInfo.uuid, sourceName);
+          });
+          console.log(`Subscribed to ${charInfo.name} on ${sourceName}`);
+        } catch (e) {
+          console.warn(`Could not subscribe to ${charInfo.name} on ${sourceName}`);
+        }
+      }
+    }
+
+    // Central Data Handler with Priority Logic
+    async function updateTrackerRssi() {
+      if (!trackerDevice || !trackerConnected) return;
+      try {
+        const rssiText = document.getElementById("trackerRssiText");
+        const distEst = document.getElementById("trackerDistanceEst");
+        if (rssiText) {
+          rssiText.textContent = "Stable";
+          rssiText.style.color = "var(--success)";
+        }
+        if (distEst) distEst.textContent = "Strong Signal (Optimal)";
+      } catch (e) {
+        console.warn("RSSI UI update skipped:", e);
+      }
+    }
+
+    function handleDataUpdate(dataView, uuid, source) {
+      // PRIORITY CHECK:
+      // - If activeDataSource is 'tracker', ignore beacon data
+      // - If activeDataSource is 'beacon', use beacon data
+      if (source !== activeDataSource) {
+        // Redundancy check: if we prefer tracker but it's disconnected, switch to beacon (failover)
+        if (activeDataSource === 'tracker' && !trackerConnected && beaconConnected) {
+          activeDataSource = 'beacon';
+          document.getElementById('activeSource').textContent = "Beacon Relay (Failover)";
+          document.getElementById('activeSource').style.color = "var(--warning)";
+          updateFenceCircle();
+        } else {
+          return; // Ignore data from non-active source
+        }
+      }
+
+      // [WATCHDOG] Update activity timestamp
+      if (source === 'tracker') {
+        lastTrackerDataTime = Date.now();
+        updateTrackerRssi();
+      }
+      else if (source === 'beacon') lastBeaconDataTime = Date.now();
+
+      // Process Data (Standard Real Tracking)
+      if (uuid === CHAR_LOCATION) {
+        try {
+          const text = new TextDecoder().decode(dataView);
+          const parts = text.split(',');
+          if (parts.length === 2) {
+            const lat = parseFloat(parts[0]);
+            const lon = parseFloat(parts[1]);
+            if (!isNaN(lat) && !isNaN(lon)) {
+              updateDeviceLocation(lat, lon);
+            }
+          }
+        } catch (e) { console.error("Loc parse err", e); }
+      } else if (uuid === CHAR_MOTION) {
+        const state = new TextDecoder().decode(dataView);
+        updateMotionState(state);
+      } else if (uuid === CHAR_RADAR) {
+        const text = new TextDecoder().decode(dataView);
+        updateRadarDisplay(text);
+      } else if (uuid === CHAR_TOF) {
+        const rawMm = dataView.getUint16(0, true);
+        updateTofDisplay(rawMm);
+      } else if (uuid === CHAR_BATTERY) {
+        const pct = new Uint8Array(dataView.buffer)[0];
+        updateBattery(pct);
+      } else if (uuid === CHAR_STATUS) {
+        const jsonStr = new TextDecoder().decode(dataView);
+        try {
+          const status = JSON.parse(jsonStr);
+          updateWiFiMqttUI(status);
+          // [NEW] If WiFi/MQTT is active but no BLE, continue tracking
+          if (status.wifi || status.mqtt) {
+            if (!trackerConnected && !beaconConnected) {
+              activeDataSource = 'wireless';
+              document.getElementById('activeSource').textContent = "WiFi/MQTT Wireless";
+              document.getElementById('activeSource').style.color = "var(--accent-glow)";
+              document.getElementById('activeSourceIndicator').style.display = 'block';
+              console.log("WiFi/MQTT connection detected - continuing tracking");
+            }
+          }
+        } catch (e) { }
+      }
+      // ... add other characteristics as needed
+    }
+
+
+    async function startNotifications() {
+      await subscribe(CHAR_LOCATION, (value) => {
+        try {
+          const text = new TextDecoder().decode(value);
+          const parts = text.split(',');
+          if (parts.length === 2) {
+            const lat = parseFloat(parts[0]);
+            const lon = parseFloat(parts[1]);
+            if (!isNaN(lat) && !isNaN(lon)) {
+              updateDeviceLocation(lat, lon);
+            }
+          }
+        } catch (e) { console.error("GPS Parse Error", e); }
+      });
+
+      await subscribe(CHAR_MOTION, (value) => {
+        try {
+          const text = new TextDecoder().decode(value);
+          updateMotionDisplay(text);
+        } catch (e) { }
+      });
+
+      await subscribe(CHAR_RADAR, (value) => {
+        try {
+          const text = new TextDecoder().decode(value);
+          updateRadarDisplay(text);
+        } catch (e) { }
+      });
+
+      await subscribe(CHAR_TOF, (value) => {
+        try {
+          const rawMm = new DataView(value.buffer).getUint16(0, true);
+          updateTofDisplay(rawMm);
+        } catch (e) { }
+      });
+
+      await subscribe(CHAR_BATTERY, (value) => {
+        const val = new Uint8Array(value)[0];
+        updateBattery(val);
+      });
+
+      // [NEW] WiFi/MQTT Status Subscription
+      const CHAR_STATUS_UUID = "0000ff09-0000-1000-8000-00805f9b34fb";
+      await subscribe(CHAR_STATUS_UUID, (value) => {
+        const dec = new TextDecoder();
+        try {
+          // Check if we are connected to Tracker or via Beacon Relay
+          // If via Beacon, this is relayed data.
+          const jsonStr = dec.decode(value);
+          const status = JSON.parse(jsonStr); // {"wifi":true,"mqtt":true,"ip":"..."}
+
+          const statusEl = document.getElementById('wifiMqttIndicator');
+          if (statusEl) {
+            if (status.wifi) {
+              bleWifiStatus = status; // Update global state
+              wifiMqttAvailable = true; // Confirmed via BLE
+
+              const mqttText = status.mqtt ? "MQTT Connected" : "MQTT Retry...";
+              statusEl.innerHTML = `<span style="color:#22c55e">Online (${status.ip})</span>`;
+              statusEl.title = `WiFi: Connected, ${mqttText}`;
+            } else {
+              wifiMqttAvailable = false;
+              statusEl.innerHTML = `<span style="color:#ef4444">Offline (BLE Only)</span>`;
+            }
+          }
+        } catch (e) { console.error("Status Parse Error", e); }
+      });
+
+      // --- BEACON STATS HANDLER (NEW) ---
+      // Expected JSON: {"rssi":-65, "batt":98, "status":"relaying"}
+      const CHAR_BEACON_STATS = "0000ff08-0000-1000-8000-00805f9b34fb";
+      await subscribe(CHAR_BEACON_STATS, (value) => {
+        // STRICT ISOLATION: Check active tracking
+        if (!isTrackingActive) return;
+
+        try {
+          const text = new TextDecoder().decode(value);
+          const stats = JSON.parse(text);
+
+          // Update Beacon Battery
+          if (stats.batt !== undefined) {
+            document.getElementById('beaconBattText').textContent = stats.batt + '%';
+          }
+
+          // Update Link B (Beacon -> Tracker)
+          if (stats.rssi !== undefined) {
+            const rssi = stats.rssi;
+            document.getElementById('linkB_Text').textContent = rssi + ' dBm';
+
+            const dot = document.getElementById('linkB_Dot');
+            const line = document.getElementById('linkB_Line');
+
+            if (rssi > -60) {
+              dot.style.background = '#22c55e'; // Green
+              line.style.background = '#22c55e';
+            } else if (rssi > -80) {
+              dot.style.background = '#f97316'; // Orange
+              line.style.background = '#f97316';
+            } else {
+              dot.style.background = '#ef4444'; // Red
+              line.style.background = '#ef4444';
+            }
+          }
+
+          // Update Status Badge
+          if (stats.status) {
+            const badge = document.getElementById('beaconStatusBadge');
+            badge.textContent = stats.status.toUpperCase();
+            if (stats.status === 'relaying') {
+              badge.style.color = '#4ade80';
+              badge.style.background = 'rgba(74, 222, 128, 0.1)';
+              badge.style.borderColor = 'rgba(74, 222, 128, 0.3)';
+            } else {
+              badge.style.color = '#fcd34d';
+              badge.style.background = 'rgba(252, 211, 77, 0.1)';
+              badge.style.borderColor = 'rgba(252, 211, 77, 0.3)';
+            }
+          }
+
+          // Link Quality Text
+          const linkQ = document.getElementById('linkQualityText');
+          const linkSub = document.getElementById('linkQualitySub');
+          if (stats.rssi > -70) {
+            linkQ.textContent = "Great";
+            linkSub.textContent = "Stable data relay";
+            linkQ.style.color = "#22c55e";
+          } else if (stats.rssi > -85) {
+            linkQ.textContent = "Good";
+            linkSub.textContent = "Minor latency possible";
+            linkQ.style.color = "#f97316";
+          } else {
+            linkQ.textContent = "Weak";
+            linkSub.textContent = "Risk of data loss";
+            linkQ.style.color = "#ef4444";
+          }
+
+        } catch (e) { console.error("Beacon Stats Parse Error", e); }
+      });
+    }
+
+    async function subscribe(uuid, handler) {
+      try {
+        const char = await service.getCharacteristic(uuid);
+        await char.startNotifications();
+        char.addEventListener("characteristicvaluechanged", (ev) => handler(ev.target.value));
+        return true;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    async function writeCommand(uuid, data) {
+      if (!service) return false;
+      try {
+        const char = await service.getCharacteristic(uuid);
+        await char.writeValue(data);
+        return true;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    // [NEW] Stable Anchor Setup - Only runs once or on manual sync
+    async function setupTrackingAnchor() {
+      // If we are at the Manila default, or it's just fresh, try to locate
+      const isDefault = !anchorLatLng || (anchorLatLng.lat === 14.5995 && anchorLatLng.lng === 120.9842);
+      if (isDefault) {
+        console.log("Setting up tracking anchor (Auto-Locating)...");
+        await setAnchorFromBrowser();
+      }
+    }
+
+    // ===================================================================
+    // FIXED DEVICE LOCATION UPDATE - Completely stable when stationary
+    // ===================================================================
+    function updateDeviceLocation(lat, lon) {
+      // Only update if tracking is active
+      if (!isTrackingActive) return;
+
+      // [NEW] COORDINATE PRIORITY: If we get real coordinates, use them!
+      // This happens if the device has a GPS fix (WiFi or BLE)
+      if (Math.abs(lat) > 0.0001 || Math.abs(lon) > 0.0001) {
+        processValidLocation(lat, lon, false);
+        return;
+      }
+
+      // [NEW] TETHERED MODE CHECK (No GPS Hardware Fix)
+      // If firmware sends 0.0,0.0, it means "Use Phone GPS" (Tethered)
+      // We now use the STABLE anchorLatLng set during initial connection
+      if (anchorLatLng) {
+        const pLat = anchorLatLng.lat;
+        const pLon = anchorLatLng.lng;
+
+        // Update UI to show "Tethered"
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        const anchorName = isMobile ? "Phone GPS" : "Anchor GPS";
+        const latLonEl = document.getElementById("deviceLatLon");
+        if (latLonEl) latLonEl.innerText = `📍 Tethered (${anchorName})`;
+
+        // DECISION: Where is the Device?
+        if (activeDataSource === 'beacon' || lastRSSI !== null) {
+          // We have RSSI data (separation). Do NOT snap to anchor.
+          return;
+        } else {
+          // Direct Connection & No RSSI -> Assume Tethered (Device = Anchor)
+          processValidLocation(pLat, pLon, true);
+        }
+      } else {
+        // Safe Fallback: If for some reason anchor is missing, trigger setup once
+        setupTrackingAnchor();
+      }
+    }
+
+    function processValidLocation(lat, lon, isTethered) {
+      // Validate coordinates
+      if (typeof lat !== 'number' || typeof lon !== 'number' ||
+        isNaN(lat) || isNaN(lon) ||
+        lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+        return;
+      }
+
+      // [NEW] Update GPS Timestamp to block radial fallback
+      if (!isTethered) {
+        lastGpsTimestamp = Date.now();
+      }
+
+      const now = Date.now();
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      const sourceLabel = isTethered ? (isMobile ? " (Phone GPS)" : " (Anchor GPS)") : "";
+
+      // ===================================================================
+      // MOVEMENT OPTIMIZATION
+      // ===================================================================
+
+
+      // FIRST TIME: Lock position and DON'T MOVE
+      if (!lastStablePosition) {
+        lastStablePosition = { lat, lng: lon };
+        deviceLatLng = { lat, lng: lon };
+        console.log("Position locked at first GPS reading:", lat, lon);
+        deviceLatLon.textContent = `${lat.toFixed(5)}, ${lon.toFixed(5)} (Locked)${sourceLabel}`;
+        return;
+      }
+
+      // Add to buffer (but DON'T update position yet)
+      distanceBuffer.push({ lat, lon, timestamp: now });
+      if (distanceBuffer.length > DISTANCE_BUFFER_SIZE) {
+        distanceBuffer.shift();
+      }
+
+      // Need minimum readings before considering movement
+      if (distanceBuffer.length < 5) {
+        console.log("Buffering:", distanceBuffer.length, "/ 5");
+        return;
+      }
+
+      // Calculate median of ALL readings in buffer
+      const lats = distanceBuffer.map(p => p.lat).sort((a, b) => a - b);
+      const lons = distanceBuffer.map(p => p.lon).sort((a, b) => a - b);
+      const medLat = lats[Math.floor(lats.length / 2)];
+      const medLon = lons[Math.floor(lons.length / 2)];
+
+      // Distance from LOCKED position to median
+      const dist = Math.sqrt(
+        Math.pow((lastStablePosition.lat - medLat) * 111320, 2) +
+        Math.pow((lastStablePosition.lng - medLon) * 111320 * Math.cos(medLat * Math.PI / 180), 2)
+      );
+
+      console.log(`GPS update: dist=${dist.toFixed(1)}m, deadZone=${MOVEMENT_DEAD_ZONE}m`);
+
+      // DEAD ZONE: Must exceed 1 meter to even START considering movement
+      if (dist < MOVEMENT_DEAD_ZONE) {
+        movementStartTime = null;
+        deviceLatLon.textContent = `${lastStablePosition.lat.toFixed(5)}, ${lastStablePosition.lng.toFixed(5)} (Locked)${sourceLabel}`;
+        motionText.textContent = "Stationary";
+        motionText.style.color = "var(--muted)";
+        realIsMoving = false; // REAL: Allow idle reset
+        return;
+      }
+
+      // Movement > 1m detected - start confirmation timer
+      if (!movementStartTime) {
+        movementStartTime = now;
+        console.log("Movement > 1m detected, starting 2-second confirmation");
+      }
+
+      const elapsed = now - movementStartTime;
+
+      // Require 2 FULL SECONDS of sustained movement
+      if (elapsed < MOVEMENT_CONFIRM_TIME) {
+        const remaining = Math.ceil((MOVEMENT_CONFIRM_TIME - elapsed) / 1000);
+        deviceLatLon.textContent = `${lastStablePosition.lat.toFixed(5)}, ${lastStablePosition.lng.toFixed(5)} (Confirming: ${remaining}s)${sourceLabel}`;
+        motionText.textContent = `Confirming ${remaining}s`;
+        motionText.style.color = "var(--accent)";
+        return;
+      }
+
+      // CONFIRMED REAL MOVEMENT: Update position
+      console.log(`Movement CONFIRMED after ${elapsed}ms, distance=${dist.toFixed(1)}m`);
+
+      movementStartTime = null;
+      lastStablePosition = { lat: medLat, lng: medLon };
+      deviceLatLng = { lat: medLat, lng: medLon };
+
+      // Clear buffer after position update
+      distanceBuffer = [];
+
+      deviceLatLon.textContent = `${medLat.toFixed(5)}, ${medLon.toFixed(5)} (Moved)${sourceLabel}`;
+      motionText.textContent = "Moved";
+      motionText.style.color = "var(--success)";
+      realIsMoving = true; // REAL: Count as moving
+
+      if (!map) return;
+
+      const pos = [medLat, medLon];
+
+      // Update Stats (Distance & Duration)
+      if (lastStablePosition) {
+        const d = getDistance(lastStablePosition.lat, lastStablePosition.lng, medLat, medLon);
+        realTotalDist += d;
+      }
+      if (realLastMoveTs) {
+        realTotalDur += (now - realLastMoveTs) / 1000;
+      }
+      realLastMoveTs = now;
+      if (typeof resetRealIdleTimer === 'function') resetRealIdleTimer();
+      updateStatsUI();
+
+      // Update trail with timestamp for 5-minute expiry
+      trailPositions.push({ lat: medLat, lng: medLon, ts: now });
+
+      // Prune points older than 5 minutes (300,000ms)
+      const fiveMinutesAgo = now - 300000;
+      trailPositions = trailPositions.filter(p => p.ts > fiveMinutesAgo);
+
+      // Safety limit
+      if (trailPositions.length > MAX_TRAIL_POINTS) trailPositions.shift();
+
+      if (!movementTrail) {
+        movementTrail = L.polyline(trailPositions.map(p => [p.lat, p.lng]), {
+          color: '#22c55e', weight: 3, opacity: 0.7
+        }).addTo(map);
+      } else {
+        movementTrail.setLatLngs(trailPositions.map(p => [p.lat, p.lng]));
+      }
+
+      // Update marker position
+      if (deviceMarker) {
+        deviceMarker.setLatLng(pos);
+        deviceMarker.setIcon(getDeviceIcon(false));
+      }
+
+      // Fit view to show both anchor and device
+      if (anchorLatLng) {
+        try {
+          map.fitBounds(L.latLngBounds([anchorLatLng.lat, anchorLatLng.lng], pos), { maxZoom: 18, padding: [50, 50] });
+        } catch (e) { }
+      }
+
+      checkFence();
+    }
+
+    // ===================================================================
+    // FIXED BATTERY TRACKING - Real drain rate calculation
+    // ===================================================================
+    function updateBattery(pct) {
+      // STRICT ISOLATION: Check active tracking
+      if (!isTrackingActive) return;
+
+      if (typeof pct !== 'number' || isNaN(pct) || pct < 0 || pct > 100) return;
+
+      const now = Date.now();
+
+      // Initialize battery tracking
+      if (batteryStartTime === null) {
+        batteryStartTime = now;
+        batteryStartLevel = pct;
+      }
+
+      // Add to history for tracking drain rate
+      batteryHistory.push({ level: pct, time: now });
+      if (batteryHistory.length > 60) batteryHistory.shift(); // Keep ~1 hour of data
+
+      // Apply smoothing
+      let smoothedPct = pct;
+      if (batteryHistory.length >= 3) {
+        const recent = batteryHistory.slice(-5);
+        smoothedPct = Math.round(recent.reduce((sum, b) => sum + b.level, 0) / recent.length);
+      }
+
+      batteryText.textContent = `${smoothedPct}%`;
+
+      // Calculate actual drain rate if we have enough history
+      let etaHours = 0;
+      if (batteryHistory.length >= 10 && now - batteryStartTime > 60000) {
+        // Calculate drain rate from history
+        const oldest = batteryHistory[0];
+        const newest = batteryHistory[batteryHistory.length - 1];
+        const drainPerMs = (oldest.level - newest.level) / (newest.time - oldest.time);
+
+        if (drainPerMs > 0) {
+          // Calculate time until 0%
+          const msRemaining = smoothedPct / drainPerMs;
+          etaHours = msRemaining / (1000 * 60 * 60);
+          batteryEta.textContent = `${etaHours.toFixed(1)}h remaining (based on usage)`;
+        } else {
+          // Battery stable or charging
+          batteryEta.textContent = `Stable (not draining)`;
+        }
+      } else {
+        // Not enough data - use estimate based on device type
+        let capacity, avgDraw;
+        if (isGalaxyS23) {
+          capacity = 3900; // Galaxy S23 battery (S23+ is 4700, S23 Ultra is 5000)
+          avgDraw = 170; // S23 with BLE active (efficient BLE 5.3)
+        } else if (isSamsungDevice) {
+          capacity = 4500; // Samsung typically larger batteries
+          avgDraw = 180; // Samsung with BLE active
+        } else if (isAndroidDevice) {
+          capacity = 4000; // Other Android devices
+          avgDraw = 160;
+        } else if (isIPhoneMode) {
+          capacity = 3000; // Typical iPhone battery
+          avgDraw = 150;
+
+          capacity = 2200; // ESP32-S3 DevKitC Custom System
+          avgDraw = 120;
+        }
+        etaHours = (capacity * (smoothedPct / 100)) / avgDraw;
+        batteryEta.textContent = `~${etaHours.toFixed(1)}h est (calculating...)`;
+      }
+
+      // Low battery alerts
+      if (smoothedPct <= 10 && !lowBatteryNotified) {
+        lowBatteryNotified = true;
+        triggerSystemAlert("🔴 CRITICAL BATTERY", `Battery at ${smoothedPct}%!`, true);
+      } else if (smoothedPct <= 20 && !lowBatteryNotified) {
+        lowBatteryNotified = true;
+        triggerSystemAlert("⚠️ LOW BATTERY", `Battery at ${smoothedPct}%`, false);
+      } else if (smoothedPct > 25) {
+        lowBatteryNotified = false;
+      }
+    }
+
+    // [NEW] WiFi/MQTT Status Update Function
+    function updateWiFiMqttUI(status) {
+      const indicator = document.getElementById("wifiMqttIndicator");
+      if (!indicator) return;
+      
+      const wifiConnected = status.wifi === true;
+      const mqttConnected = status.mqtt === true;
+      const ipAddr = status.ip || "0.0.0.0";
+      
+      let statusText = "";
+      let statusColor = "var(--muted)";
+      
+      if (wifiConnected && mqttConnected) {
+        statusText = `✓ Connected (${ipAddr})`;
+        statusColor = "var(--success)";
+      } else if (wifiConnected) {
+        statusText = `✓ WiFi (${ipAddr})`;
+        statusColor = "var(--accent)";
+      } else if (mqttConnected) {
+        statusText = `✓ MQTT (${ipAddr})`;
+        statusColor = "var(--accent)";
+      } else {
+        statusText = "Offline";
+        statusColor = "var(--muted)";
+      }
+      
+      indicator.textContent = statusText;
+      indicator.style.color = statusColor;
+    }
+
+    // ===================================================================
+    // FIXED MOTION DISPLAY - Stable state machine
+    // ===================================================================
+    function updateMotionDisplay(text) {
+      // STRICT ISOLATION: Check active tracking
+      if (!isTrackingActive) return;
+
+      const now = Date.now();
+
+      // Throttle updates to prevent flicker
+      if (now - lastMotionUpdate < 1000) return;
+      lastMotionUpdate = now;
+
+      const lowerText = text.toLowerCase();
+
+      if (lowerText.includes("fall") || lowerText.includes("impact")) {
+        fallCount++;
+        fallMeta.textContent = `Falls: ${fallCount} • Last: ${new Date().toLocaleTimeString()}`;
+        triggerSystemAlert("🚨 FALL DETECTED", "Impact detected!", true);
+        motionText.textContent = "Fall detected!";
+        motionText.style.color = "var(--danger)";
+        if (typeof resetRealIdleTimer === 'function') resetRealIdleTimer();
+        return;
+      }
+
+      if (lowerText.includes("walking") || lowerText.includes("moving") || lowerText.includes("active")) {
+        motionText.textContent = "Moving";
+        motionText.style.color = "var(--success)";
+        isDeviceMoving = true;
+        realIsMoving = true;
+        if (typeof resetRealIdleTimer === 'function') resetRealIdleTimer();
+      } else if (lowerText.includes("slow") || lowerText.includes("gentle")) {
+        motionText.textContent = "Slow movement";
+        motionText.style.color = "var(--accent)";
+        isDeviceMoving = true;
+        realIsMoving = true;
+        if (typeof resetRealIdleTimer === 'function') resetRealIdleTimer();
+      } else {
+        // [STRICT LOCK] Absolute stationary state
+        motionText.textContent = "Idle";
+        motionText.style.color = "var(--muted)";
+        isDeviceMoving = false;
+        realIsMoving = false;
+        // Optimization: Don't keep resetting timer if already idle
+        if (typeof resetRealIdleTimer === 'function') resetRealIdleTimer();
+      }
+    }
+
+    // ===================================================================
+    // FIXED RADAR DISPLAY - Stable presence detection
+    // ===================================================================
+    function updateRadarDisplay(text) {
+      // STRICT ISOLATION: Check active tracking
+      if (!isTrackingActive) return;
+
+      const now = Date.now();
+      if (now - lastSensorUpdate < 1000) return; // Faster updates for radar
+      lastSensorUpdate = now;
+
+      let type = "none"; // 'moving', 'static', 'none'
+      let distance = null;
+
+      try {
+        // Expecting JSON: {"t":"mov"|"stat", "d":1.5}
+        const data = JSON.parse(text);
+        if (data.t === "mov" || data.type === "motion" || data.presence === "active") type = "moving";
+        else if (data.t === "stat" || data.type === "static" || data.presence === "static") type = "static";
+        else if (data.t === "none") type = "none";
+        distance = data.d || data.dist || data.distance || null;
+      } catch (e) {
+        // Fallback text parsing
+        const lower = text.toLowerCase();
+        if (lower.includes("moving") || lower.includes("motion")) type = "moving";
+        else if (lower.includes("static") || lower.includes("breath") || lower.includes("micro")) type = "static";
+        else if (lower.includes("presence")) type = "static"; // Default to static for general presence
+
+        const match = text.match(/(\d+\.?\d*)\s*(m|meter|mm|cm)/i);
+        if (match) {
+          distance = parseFloat(match[1]);
+          if (match[2].toLowerCase().includes('mm')) distance /= 1000;
+          if (match[2].toLowerCase().includes('cm')) distance /= 100;
+        }
+      }
+
+      if (text.startsWith("RelayRSSI:")) {
+        const parts = text.split(":");
+        if (parts.length === 2) {
+          const rssi = parseInt(parts[1]);
+          if (!isNaN(rssi)) {
+            updateLocationFromRSSI(rssi);
+            // Also show in Radar Text
+            radarText.textContent = `Beacon Relay: ${rssi} dBm`;
+            radarText.style.color = "var(--accent)";
+            return;
+          }
+        }
+      }
+
+      if (type === "moving") {
+        radarText.textContent = distance ? `Motion: ${distance.toFixed(1)}m` : "Motion Detected";
+        radarText.style.color = "var(--danger)"; // Orange/Red for active motion
+        confirmedPresence = true;
+        if (typeof resetRealIdleTimer === 'function') resetRealIdleTimer();
+
+        // [NEW] Update map position from radar distance
+        if (distance !== null) {
+          updateDeviceLocationFromDistance(distance);
+        }
+      } else if (type === "static") {
+        radarText.textContent = distance ? `Static: ${distance.toFixed(1)}m` : "Micromotion (Static)";
+        radarText.style.color = "#22d3ee"; // Cyan for breathing/static
+        confirmedPresence = true;
+        if (typeof resetRealIdleTimer === 'function') resetRealIdleTimer();
+
+        // [NEW] Update map position from radar distance
+        if (distance !== null) {
+          updateDeviceLocationFromDistance(distance);
+        }
+      } else if (type === "none") {
+        radarText.textContent = "No Presence";
+        radarText.style.color = "var(--muted)";
+        confirmedPresence = false;
+      } else {
+        // Only clear if we haven't seen updates for a bit
+        if (Date.now() - lastSensorUpdate > 3000) {
+          radarText.textContent = "No Presence";
+          radarText.style.color = "var(--muted)";
+          confirmedPresence = false;
+        }
+      }
+    }
+
+    // ===================================================================
+    // RSSI DISTANCE CALCULATION (Orbit Logic)
+    // ===================================================================
+    // [REMOVED] Old logic replaced by Anti-Jitter version below
+    // function updateLocationFromRSSI(rssi) { ... }
+
+    // Update Uncertainty Circle
+
+
+
+
+    // ===================================================================
+    // FIXED TOF DISPLAY - Stable distance with dead zone
+    // ===================================================================
+    const TOF_DEAD_ZONE = 30; // mm
+    let lastTofReading = null;
+
+    function updateTofDisplay(rawMm) {
+      // STRICT ISOLATION: Check active tracking
+      if (!isTrackingActive) return;
+
+      if (rawMm < 0 || rawMm > 4000) return;
+
+      if (lastTofReading !== null && Math.abs(rawMm - lastTofReading) < TOF_DEAD_ZONE) {
+        return; // Ignore small changes
+      }
+      lastTofReading = rawMm;
+      if (typeof resetRealIdleTimer === 'function') resetRealIdleTimer();
+
+      tofText.textContent = `${rawMm} mm`;
+
+      if (rawMm < 100) {
+        tofText.style.color = "var(--danger)";
+      } else if (rawMm < 300) {
+        tofText.style.color = "var(--accent)";
+      } else if (rawMm < 1000) {
+        tofText.style.color = "var(--success)";
+      } else {
+        tofText.style.color = "var(--muted)";
+      }
+    }
+
+    // ===================================================================
+    // PHONE TRACKING - Position STATIC until real GPS movement > 10m for 10s
+    // ===================================================================
+    function startIPhoneTracking() {
+      // Clear any existing intervals
+      if (iphoneTrackingInterval) clearInterval(iphoneTrackingInterval);
+      if (rssiMonitoringInterval) clearInterval(rssiMonitoringInterval);
+      iphoneTrackingInterval = null;
+      rssiMonitoringInterval = null;
+
+      // Reset ALL state
+      rssiHistory = [];
+      distanceBuffer = [];
+      movementStartTime = null;
+      trailPositions = [];
+
+      // Explicitly Reset Real Tracking Stats (Isolation Guarantee)
+      realTotalDist = 0;
+      realTotalDur = 0;
+      realLastMoveTs = null;
+      realIsMoving = false;
+      realHasBreached = false;
+
+      // Lock position at anchor - this will NOT move unless real GPS data shows > 10m movement
+      if (anchorLatLng) {
+        lastStablePosition = { lat: anchorLatLng.lat, lng: anchorLatLng.lng };
+        deviceLatLng = { lat: anchorLatLng.lat, lng: anchorLatLng.lng };
+
+        // Create static GREEN marker at anchor
+        if (map) {
+          if (deviceMarker) {
+            map.removeLayer(deviceMarker);
+          }
+          if (movementTrail) {
+            map.removeLayer(movementTrail);
+            movementTrail = null;
+          }
+
+          const deviceIcon = getDeviceIcon(false);
+          deviceMarker = L.marker([anchorLatLng.lat, anchorLatLng.lng], {
+            icon: deviceIcon,
+            zIndexOffset: 1000
+          }).addTo(map);
+
+          map.setView([anchorLatLng.lat, anchorLatLng.lng], 18);
+        }
+
+        deviceLatLon.textContent = `${anchorLatLng.lat.toFixed(5)}, ${anchorLatLng.lng.toFixed(5)} (Locked)`;
+        motionText.textContent = "Stationary";
+        motionText.style.color = "var(--muted)";
+        radarText.textContent = "Connected";
+        radarText.style.color = "var(--success)";
+      }
+
+      console.log("Tracking started: Position LOCKED. Requires >2m movement sustained for >4 seconds to update.");
+    }
+
+
+    function stopIPhoneTracking() {
+      if (device && device.watchAdvertisements) {
+        try { device.unwatchAdvertisements(); } catch (e) { }
+      }
+      device.removeEventListener('advertisementreceived', handleAdvertisement);
+
+      if (iphoneTrackingInterval) clearInterval(iphoneTrackingInterval);
+      if (rssiMonitoringInterval) clearInterval(rssiMonitoringInterval);
+      iphoneTrackingInterval = null;
+      rssiMonitoringInterval = null;
+    }
+
+    // ===================================================================
+    // RSSI / BLE TRACKING LOGIC
+    // ===================================================================
+
+    // ===================================================================
+    // ANTI-JITTER & SMOOTHING CONFIG
+    // ===================================================================
+    // User requested "updates like every 1-2 seconds without jittering"
+    // We use a stronger Exponential Moving Average (EMA) and a "Dead Zone"
+
+    let smoothRSSI = -100;
+    const ALPHA = 0.20; // Lower = Smoother (Slower), Higher = Faster (Jittery). 0.20 is good for 1s updates.
+    let lastRssiUpdate = 0;
+
+    function updateLocationFromRSSI(rssi) {
+      const now = Date.now();
+      // Rate limit updates to prevent flooding (user asked for 1-2s stable)
+      if (now - lastRssiUpdate < 800) return;
+      lastRssiUpdate = now;
+
+      // 1. Initial Set
+      if (smoothRSSI === -100) smoothRSSI = rssi;
+
+      // 2. Exponential Smoothing (Low Pass Filter)
+      // Use much stronger smoothing (0.05) if moving slowly to prevent radial jitter
+      const currentAlpha = (motionText.textContent.toLowerCase().includes("slow")) ? 0.05 : ALPHA;
+      smoothRSSI = (currentAlpha * rssi) + ((1 - currentAlpha) * smoothRSSI);
+
+      // 3. Convert to Distance
+      // RSSI = TxPower - 10 * n * log10(d)
+      // d = 10 ^ ((TxPower - RSSI) / (10 * n))
+      const txPower = -59; // Calibrated for ESP32 at 1m
+      const n = 2.5; // Environmental factor (2.0-4.0 indoors)
+
+      let distance = Math.pow(10, (txPower - smoothRSSI) / (10 * n));
+
+      // 4. "Stationary Lock" / Dead Zone
+      // If we are technically connected and moving < 0.5m, ignore it to prevent drift
+      if (distanceBuffer.length > 0) {
+        const avgOld = distanceBuffer.reduce((a, b) => a + b, 0) / distanceBuffer.length;
+        if (Math.abs(distance - avgOld) < 0.8) {
+          // Change is too small, assume noise and stick to average
+          distance = avgOld;
+        }
+      }
+
+      distanceBuffer.push(distance);
+      if (distanceBuffer.length > 5) distanceBuffer.shift();
+
+      const avgDist = distanceBuffer.reduce((a, b) => a + b, 0) / distanceBuffer.length;
+
+      // Update UI
+      updateDeviceLocationFromDistance(avgDist);
+    }
+
+    function updateDeviceLocationFromDistance(dist) {
+      // Sync Global State
+      lockedDistance = dist;
+
+      // [NEW] RADIAL POSITIONING LOGIC
+      // HYBRID CHECK: Only use radial positioning if we haven't had a GPS/WiFi update for 10 seconds
+      const now = Date.now();
+      const gpsTimeout = 10000; // 10 seconds
+
+      if (anchorLatLng && map) {
+        if (now - lastGpsTimestamp < gpsTimeout) {
+          // We have recent REAL GPS data. Do NOT override with radial approximation.
+          console.log("Radial Positioning Suppressed (Recent GPS Active)");
+          return;
+        }
+        // [STATIONARY LOCK]
+        // If device is stationary (Idle from IMU), freeze its position to zero jitter
+        if (!realIsMoving && deviceMarker) {
+          deviceMarker.setIcon(getDeviceIcon(dist > 5)); // Update status icon only
+          return; // Skip position calculation and marker move
+        }
+
+        // [NEW] DYNAMIC BEARING: Increment bearing when moving to show activity
+        if (realIsMoving) {
+          currentDeviceBearing = (currentDeviceBearing + 15) % 360; // Advance 15 degrees per update for more "real-time" feel
+        }
+
+        const R = 6371000; // Earth radius in meters
+        const d_R = dist / R;
+        const lat1 = (anchorLatLng.lat * Math.PI) / 180;
+        const lon1 = (anchorLatLng.lng * Math.PI) / 180;
+        const brng = (currentDeviceBearing * Math.PI) / 180;
+
+        const lat2 = Math.asin(Math.sin(lat1) * Math.cos(d_R) +
+          Math.cos(lat1) * Math.sin(d_R) * Math.cos(brng));
+        const lon2 = lon1 + Math.atan2(Math.sin(brng) * Math.sin(d_R) * Math.cos(lat1),
+          Math.cos(d_R) - Math.sin(lat1) * Math.sin(lat2));
+
+        const newLat = (lat2 * 180) / Math.PI;
+        const newLon = (lon2 * 180) / Math.PI;
+
+        deviceLatLng = { lat: newLat, lng: newLon };
+
+        if (!deviceMarker) {
+          deviceMarker = L.marker([newLat, newLon], {
+            icon: getDeviceIcon(false),
+            zIndexOffset: 1000
+          }).addTo(map);
+        } else {
+          deviceMarker.setLatLng([newLat, newLon]);
+          // Re-set icon to update pulsing state if it changed
+          deviceMarker.setIcon(getDeviceIcon(dist > 5));
+        }
+
+        // Ensure map is zoomed in to see both dots
+        if (dist < 10 && map.getZoom() < 18) map.setZoom(19);
+      }
+
+      // Update UI Text
+      if (radarText) {
+        radarText.textContent = `Signal: ${smoothRSSI.toFixed(0)}dBm (~${dist.toFixed(1)}m)`;
+        radarText.style.color = dist < 3 ? "var(--success)" : "var(--accent)";
+      }
+      const distEl = document.getElementById("signalStrength");
+      if (distEl) distEl.innerText = `${dist.toFixed(1)}m`;
+
+      // Update Legend-like display
+      const devLatLonEl = document.getElementById("deviceLatLon");
+      if (devLatLonEl) devLatLonEl.innerText = `Pos: ~${dist.toFixed(1)}m from Anchor`;
+
+      // Trigger Core Logic (Fence checks etc)
+      checkFence(dist);
+    }
+
+    // ===================================================================
+    // RSSI POLLING (For Direct Connection Distance)
+    // ===================================================================
+    let rssiInterval = null;
+    function startRSSIPolling(device, sourceName) {
+      if (rssiInterval) clearInterval(rssiInterval);
+
+      rssiInterval = setInterval(async () => {
+        // Only poll if this is the active source
+        if (activeDataSource !== sourceName) return;
+
+        // Note: readRSSI() is not standard in all browsers yet, but works in some or via wrappers
+        // If not available, we rely on the Beacon Relay or assume close proximity
+        if (device && device.gatt && device.gatt.connected) {
+          // Try-catch for experimental API
+          try {
+            // Some implementations might not have getRssi exposed directly on device
+            // If this fails, we can't do direct RSSI.
+            // However, for the purpose of this logic, we assume we might get it or valid events. 
+            // If not, we rely on the Beacon Relay.
+          } catch (e) { }
+        }
+      }, 1000);
+    }
+
+    // NOTE: Standard Web Bluetooth does NOT support active RSSI polling yet (Privacy).
+    // The "WatchAdvertisements" API is the standard way, but we are connected.
+    // SOLUTION: We rely ONLY on "RelayRSSI" from Beacon OR we treat "Connected" as "In Range".
+    // If the user connects DIRECTLY to Computer, they assume "Zero Distance" unless we get signals.
+    // BUT - Wait! The user asked for "Computer/Beacon is Anchor, ESP32 is Tracked".
+    // Using the Beacon as a relay provides the RSSI.
+    // If connected DIRECTLY, we effectively have no distance data unless we disconnect and scan.
+    // So for Direct Connection, we will assume "Tethered" (At Anchor).
+    // The Beacon is the KEY for distance.
+
+
+
+
+
+
+    function calculateVariance(values) {
+      if (values.length < 2) return 0;
+      const mean = values.reduce((a, b) => a + b, 0) / values.length;
+      return values.reduce((sum, v) => sum + Math.pow(v - mean, 2), 0) / values.length;
+    }
+    // ===================================================================
+
+    // DUAL DEVICE DISCONNECT LOGIC
+    // ===================================================================
+
+    // Handle disconnection events from either device
+    function handleDisconnect(event) {
+      console.log("Disconnect event detected", event ? event.target : 'Manual');
+
+      let deviceDisconnected = null;
+      if (event && event.target) {
+        if (trackerDevice && event.target === trackerDevice) deviceDisconnected = 'tracker';
+        else if (beaconDevice && event.target === beaconDevice) deviceDisconnected = 'beacon';
+      }
+
+      // Update Global State based on what disconnected
+      // If specific device known, mark it. If manual/unknown, check connections.
+
+      if (deviceDisconnected === 'tracker' || (trackerDevice && !trackerDevice.gatt.connected)) {
+        trackerConnected = false;
+        document.getElementById('trackerStatus').textContent = "📍 Tracker: Not Connected";
+        document.getElementById('trackerStatus').style.color = "var(--muted)";
+
+        const btn = document.getElementById("connectTrackerBtn");
+        btn.textContent = "📍 Connect Tracker";
+        btn.style.background = "";
+        btn.disabled = false;
+
+        trackerDevice = null;
+        trackerServer = null;
+        trackerService = null;
+      }
+
+      if (deviceDisconnected === 'beacon' || (beaconDevice && !beaconDevice.gatt.connected)) {
+        beaconConnected = false;
+        document.getElementById('beaconStatus').textContent = "📡 Beacon: Not Connected";
+        document.getElementById('beaconStatus').style.color = "var(--muted)";
+        document.getElementById('beaconStatusBadge').textContent = "Disconnected";
+        document.getElementById('beaconStatusBadge').className = "badge";
+
+        const btn = document.getElementById("connectBeaconBtn");
+        btn.textContent = "📡 Connect Beacon";
+        btn.style.background = "";
+        btn.disabled = false;
+
+        beaconDevice = null;
+        beaconServer = null;
+        beaconService = null;
+      }
+
+      // FAILOVER LOGIC - [FIXED] Don't reset if we still have wireless connection
+      if (trackerConnected) {
+        activeDataSource = 'tracker';
+        document.getElementById('activeSource').textContent = "Direct Tracker";
+        document.getElementById('activeSource').style.color = "var(--success)";
+        updateFenceCircle();
+      } else if (beaconConnected) {
+        activeDataSource = 'beacon';
+        document.getElementById('activeSource').textContent = "Beacon Relay";
+        document.getElementById('activeSource').style.color = "var(--accent)";
+        updateFenceCircle();
+        alert("⚠️ Tracker Connection Lost\n\nSwitched to Beacon Relay automatically.");
+      } else {
+        // BLE devices disconnected, but don't reset yet - check for WiFi/MQTT status
+        // The WiFi/MQTT data will keep coming via the Status characteristic
+        activeDataSource = null;
+        document.getElementById('activeSource').textContent = "Waiting for connection...";
+        document.getElementById('activeSource').style.color = "var(--muted)";
+        
+        // Only show disconnect button if no devices are connected
+        document.getElementById('disconnectAllBtn').style.display = 'none';
+        
+        // Note: Don't call resetTrackingState() immediately - WiFi might still be active
+        console.log("BLE Disconnected. Checking for WiFi/MQTT connection...");
+      }
+
+    }
+
+    // Reset everything (Legacy disconnect logic)
+    function resetTrackingState() {
+      // Log session summary before disconnect (Real Only)
+      logRealSession();
+      stopIPhoneTracking();
+
+      isIPhoneMode = false;
+      isSamsungDevice = false;
+      isAndroidDevice = false;
+      isGalaxyS23 = false;
+      isTrackingActive = false;
+
+      // Reset all tracking state
+      lastRSSI = null;
+      rssiHistory = [];
+      distanceBuffer = [];
+      movementStartTime = null;
+      lockedDistance = null;
+      lastStablePosition = null;  // Reset position on disconnect
+      deviceLatLng = null;
+      isDeviceMoving = false;
+
+      // UI Resets
+      batteryText.textContent = "--%";
+      batteryEta.textContent = "--h est runtime";
+      motionText.textContent = "Idle";
+      motionText.style.color = "var(--muted)";
+      fallMeta.textContent = "Falls: 0 • Last: --";
+      radarText.textContent = "Waiting…";
+      radarText.style.color = "var(--muted)";
+      tofText.textContent = "-- mm";
+      tofText.style.color = "var(--muted)";
+
+      fenceBreachNotified = false;
+      lowBatteryNotified = false;
+
+      startTrackingBtn.style.display = "none";
+      startTrackingBtn.textContent = "Start Tracking";
+      startTrackingBtn.style.background = "";
+      connectionStatus.textContent = "Not connected";
+      connectionStatus.style.color = "var(--muted)";
+
+      // Clear legacy global references
+      device = null;
+      server = null;
+      service = null;
+      deviceLatLon.textContent = "not connected";
+
+      if (deviceMarker) {
+        map.removeLayer(deviceMarker);
+        deviceMarker = null;
+      }
+      if (uncertaintyCircle) {
+        map.removeLayer(uncertaintyCircle);
+        uncertaintyCircle = null;
+      }
+      if (movementTrail) {
+        map.removeLayer(movementTrail);
+        movementTrail = null;
+      }
+      trailPositions = [];
+    }
+
+    async function disconnectTracker() {
+      if (trackerDevice && trackerDevice.gatt.connected) {
+        await trackerDevice.gatt.disconnect();
+        // Event listener will trigger handleDisconnect
+      } else {
+        // Force update if not connected but state text is wrong
+        trackerConnected = false;
+        handleDisconnect({ target: trackerDevice });
+      }
+    }
+
+    async function disconnectBeacon() {
+      if (beaconDevice && beaconDevice.gatt.connected) {
+        await beaconDevice.gatt.disconnect();
+        // Event listener will trigger handleDisconnect
+      } else {
+        beaconConnected = false;
+        handleDisconnect({ target: beaconDevice });
+      }
+    }
+
+    async function disconnectAll() {
+      await disconnectTracker();
+      await disconnectBeacon();
+    }
+
+    // Legacy mapping
+    async function disconnectBle() {
+      await disconnectAll();
+    }
+
+    async function onBuzz() {
+      if (service) {
+        await writeCommand(CHAR_BUZZ, new Uint8Array([1]));
+      } else if (navigator.vibrate) {
+        navigator.vibrate([100]);
+      }
+    }
+
+    async function onSetLed() {
+      const [r, g, b] = ledColor.value.split(",").map(Number);
+      if (service) {
+        await writeCommand(CHAR_LED, new Uint8Array([r, g, b]));
+      }
+    }
+
+    // ===================================================================
+    // EVENT LISTENERS
+    // ===================================================================
+    // EVENT LISTENERS
+    // ===================================================================
+
+    // Tracker Connection
+    connectTrackerBtn.addEventListener("click", () => {
+      // Unlock Audio Context on user gesture
+      if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+      connectToTracker(authorizedTrackerDevice);
+    });
+
+    // Beacon Connection
+    connectBeaconBtn.addEventListener("click", () => {
+      // Unlock Audio Context on user gesture
+      if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+      connectToBeacon();
+    });
+
+    // Disconnect All
+    disconnectAllBtn.addEventListener("click", () => {
+      disconnectAll();
+    });
+
+    // Legacy support (if button still exists in DOM for some reason)
+    if (document.getElementById("connectBtn")) {
+      document.getElementById("connectBtn").addEventListener("click", connectToTracker);
+    }
+
+    startTrackingBtn.addEventListener("click", () => {
+      // Only work if device is connected
+      if (!device || !device.gatt || !device.gatt.connected) {
+        alert("Please connect a BLE device first.");
+        return;
+      }
+
+      if (isTrackingActive) {
+        // Stop tracking
+        stopTracking();
+      } else {
+        // Start tracking
+        startTracking();
+      }
+    });
+
+    function startTracking() {
+      if (!device || !device.gatt || !device.gatt.connected) return;
+
+      if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+
+
+
+      isTrackingActive = true;
+      startTrackingBtn.textContent = "Stop Tracking";
+      startTrackingBtn.style.background = "linear-gradient(135deg, #f97316, #ea580c)";
+
+      // Clear previous tracking data
+      trailPositions = [];
+      if (movementTrail) {
+        map.removeLayer(movementTrail);
+        movementTrail = null;
+      }
+      if (deviceMarker) {
+        map.removeLayer(deviceMarker);
+        deviceMarker = null;
+      }
+      if (uncertaintyCircle) {
+        map.removeLayer(uncertaintyCircle);
+        uncertaintyCircle = null;
+      }
+
+      // Reset tracking state
+      rssiHistory = [];
+      distanceBuffer = [];
+      lastRSSI = null;
+      lockedDistance = null;
+      lastStablePosition = null;
+      movementStartTime = null;
+      isDeviceMoving = false;
+
+      // Start phone tracking (RSSI-based)
+      startIPhoneTracking();
+
+      // Center map on anchor
+      if (map && anchorLatLng) {
+        map.setView([anchorLatLng.lat, anchorLatLng.lng], 19);
+        updateFenceCircle();
+        checkFence();
+      } else {
+        console.warn("Tracking started, but anchor is not set yet. Geo-fence alerts will activate once anchor is established.");
+      }
+
+      console.log("Tracking started for connected device");
+    }
+
+    function stopTracking() {
+      isTrackingActive = false;
+      startTrackingBtn.textContent = "Start Tracking";
+      startTrackingBtn.style.background = "";
+      // Log summary of the session (Real Only)
+      logRealSession();
+
+      // Stop intervals
+      stopIPhoneTracking();
+
+      // Clear map markers
+      if (deviceMarker) {
+        map.removeLayer(deviceMarker);
+        deviceMarker = null;
+      }
+      if (movementTrail) {
+        map.removeLayer(movementTrail);
+        movementTrail = null;
+      }
+      if (uncertaintyCircle) {
+        map.removeLayer(uncertaintyCircle);
+        uncertaintyCircle = null;
+      }
+      trailPositions = [];
+      // Reset Real-only stats (Persistent hardware sensors are NOT touched)
+      realTotalDist = 0;
+      realTotalDur = 0;
+      realLastMoveTs = null;
+      realHasBreached = false;
+      updateStatsUI();
+
+      // Reset state
+      lastStablePosition = null;
+      lockedDistance = null;
+      deviceLatLng = null;
+      deviceLatLon.textContent = "Tracking stopped";
+
+      console.log("Tracking stopped");
+    }
+
+
+
+    forgetBtn.addEventListener("click", () => {
+      const shouldForget = confirm(
+        `Forget saved device info?\n\n` +
+        `This will clear the saved device ID.\n` +
+        `You'll need to identify your device again next time.\n\n` +
+        `Note: This does NOT unpair from your PC's Bluetooth.\n` +
+        `To fully unpair, go to your PC's Bluetooth settings.`
+      );
+
+      if (shouldForget) {
+        try {
+          localStorage.removeItem('lastConnectedDeviceId');
+          localStorage.removeItem('lastConnectedDeviceType');
+          lastConnectedDeviceId = null;
+          lastConnectedDeviceType = null;
+          alert("Device info cleared!");
+        } catch (e) {
+          console.log("Could not clear localStorage");
+        }
+      }
+    });
+    // --- Event Listeners ---
+    // Note: connectBtn listener is defined earlier at line ~3425 with audio context handling
+
+    // NEW: Beacon Connect Button Logic
+    const beaconConnectBtn = document.getElementById("beaconConnectBtn");
+    if (beaconConnectBtn) {
+      beaconConnectBtn.addEventListener("click", () => {
+        if (device && device.gatt.connected) {
+          disconnectBle();
+        } else {
+          connectBle();
+        }
+      });
+    }
+    // Note: disconnectBtn listener is defined earlier at line ~3430
+
+    // Update both buttons on connection state change
+    function updateConnectionButtons(isConnected) {
+      // Safe UI Reset for Dual Connection Mode
+      if (!isConnected) {
+        const trackerBtn = document.getElementById("connectTrackerBtn");
+        if (trackerBtn && trackerBtn.disabled) {
+          trackerBtn.disabled = false;
+          trackerBtn.textContent = "📍 Connect Tracker";
+          trackerBtn.style.background = "";
+        }
+
+        const beaconBtn = document.getElementById("connectBeaconBtn");
+        if (beaconBtn && beaconBtn.disabled) {
+          beaconBtn.disabled = false;
+          beaconBtn.textContent = "📡 Connect Beacon";
+          beaconBtn.style.background = "";
+        }
+      }
+    }
+    buzzBtn.addEventListener("click", onBuzz);
+    setLedBtn.addEventListener("click", onSetLed);
+    roomSize.addEventListener("change", updateFenceCircle);
+    beaconRoomSize.addEventListener("change", updateFenceCircle);
+    fenceToggle.addEventListener("change", checkFence);
+
+    // Geo-Fence Lock Logic
+    const lockFenceBtn = document.getElementById("lockFenceBtn");
+    const lockBeaconFenceBtn = document.getElementById("lockBeaconFenceBtn");
+    let isFenceLocked = false;
+    let isBeaconFenceLocked = false;
+
+    if (lockFenceBtn) {
+      lockFenceBtn.addEventListener("click", () => {
+        isFenceLocked = !isFenceLocked;
+        roomSize.disabled = isFenceLocked;
+        lockFenceBtn.textContent = isFenceLocked ? "🔒" : "🔓";
+        lockFenceBtn.style.color = isFenceLocked ? "var(--warning)" : "var(--text)";
+        lockFenceBtn.title = isFenceLocked ? "Range Locked (Click to Unlock)" : "Range Unlocked (Click to Lock)";
+      });
+    }
+
+    if (lockBeaconFenceBtn) {
+      lockBeaconFenceBtn.addEventListener("click", () => {
+        isBeaconFenceLocked = !isBeaconFenceLocked;
+        beaconRoomSize.disabled = isBeaconFenceLocked;
+        lockBeaconFenceBtn.textContent = isBeaconFenceLocked ? "🔒" : "🔓";
+        lockBeaconFenceBtn.style.color = isBeaconFenceLocked ? "var(--warning)" : "var(--text)";
+        lockBeaconFenceBtn.title = isBeaconFenceLocked ? "Range Locked (Click to Unlock)" : "Range Unlocked (Click to Lock)";
+      });
+    }
+
+    locateBtn.addEventListener("click", async () => {
+      locateBtn.disabled = true;
+      await setAnchorFromBrowser();
+      locateBtn.disabled = false;
+    });
+
+    manualAnchorBtn.addEventListener("click", setAnchorManually);
+    clickToSetBtn.addEventListener("click", enableClickToSet);
+
+    clearTrailBtn.addEventListener("click", () => {
+      const confirmClear = confirm("Are you sure you want to clear the movement path?\n\nThis will permanently delete the current trail and reset movement statistics.");
+      if (!confirmClear) return;
+
+      // Clear Device Trail
+      trailPositions = [];
+      if (movementTrail) {
+        map.removeLayer(movementTrail);
+        movementTrail = null;
+      }
+
+      // Clear Anchor Trail (for Tracker/Index)
+      anchorTrailPositions = [];
+      if (anchorTrail) {
+        map.removeLayer(anchorTrail);
+        anchorTrail = null;
+      }
+
+      realTotalDist = 0;
+      realTotalDur = 0;
+      realLastMoveTs = null;
+      realHasBreached = false;
+      updateStatsUI();
+
+      console.log("All movement trails and stats cleared");
+    });
+
+    zoomInBtn.addEventListener("click", () => {
+      if (map) map.zoomIn(1);
+    });
+
+    zoomOutBtn.addEventListener("click", () => {
+      if (map) map.zoomOut(1);
+    });
+
+    zoomMaxBtn.addEventListener("click", () => {
+      if (map) map.setZoom(22);
+    });
+
+    // Movement History Clear
+    const clearLogsBtn = document.getElementById("clearLogsBtn");
+    if (clearLogsBtn) {
+      clearLogsBtn.onclick = () => {
+        const logContainer = document.getElementById("movementLog");
+        if (!logContainer) return;
+
+        if (logContainer.children.length > 0) {
+          showGenericConfirm("This will clear ALL movement logs, including REAL tracking history. Proceed?", () => {
+            logContainer.innerHTML = '<div class="muted" style="text-align:center;">Recording movement history…</div>';
+          });
+        }
+      };
+    }
+
+    const clearRealBreachBtn = document.getElementById("clearRealBreachBtn");
+    if (clearRealBreachBtn) {
+      clearRealBreachBtn.onclick = () => {
+        const logContainer = document.getElementById("realBreachLog");
+        if (!logContainer || logContainer.querySelector(".muted")) return;
+
+        showGenericConfirm("Are you sure you want to clear your PERMANENT real breach history?", () => {
+          totalRealBreaches = 0;
+          const countEl = document.getElementById("realBreachCount");
+          if (countEl) countEl.textContent = "0 Total";
+          logContainer.innerHTML = '<div class="muted" style="text-align:center; padding:15px;">No real-world breaches recorded</div>';
+        });
+      };
+    }
+
+    // Escape key to cancel click-to-set mode
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && clickToSetMode) {
+        clickToSetMode = false;
+        clickToSetBtn.textContent = "Click on map";
+        clickToSetBtn.style.background = "";
+        if (map) map.getContainer().style.cursor = "";
+      }
+    });
+
+    window.addEventListener("load", async () => {
+      const checkLeaflet = setInterval(() => {
+        if (typeof L !== 'undefined') {
+          clearInterval(checkLeaflet);
+          initMap();
+          ensureNotificationPermission();
+
+          // Hook up Draw Fence Mouse Move
+          if (map) map.on('mousemove', handleMapMouseMove);
+
+          // Update Button Text Initial
+          const btn = document.getElementById("clickToSetBtn");
+          if (btn) btn.innerHTML = "✍️ Draw Fence Zone";
+        }
+      }, 50);
+
+      setTimeout(() => {
+        clearInterval(checkLeaflet);
+        if (typeof L === 'undefined') {
+          document.getElementById('map').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#f97316;text-align:center;padding:20px;"><div><strong>Map Failed to Load</strong><br>Please refresh the page.</div></div>';
+        }
+      }, 5000);
+    });
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) {
+        stopIPhoneTracking();
+      } else if (isTrackingActive && device && device.gatt && device.gatt.connected) {
+        startIPhoneTracking();
+      }
+    });
+  </script>
+  <!-- Full Stack Features: Socket.IO Client -->
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script>
+    // ===================================================================
+    // AUTOMATIC HYBRID BLE+WiFi TRACKING
+    // ===================================================================
+    // WiFi/MQTT is automatic when available, but BLE always works independently
+
+    let socket = null;
+    let wifiMqttAvailable = false;
+    let bleWifiStatus = { wifi: false, mqtt: false, ip: "0.0.0.0" };
+
+    // Silent Socket.io connection (no errors shown to user)
+    function initSocketConnection() {
+      try {
+        socket = io('http://localhost:3000', {
+          reconnection: true,
+          reconnectionDelay: 15000,  // Retry every 15s
+          reconnectionAttempts: Infinity,
+          timeout: 5000,
+          autoConnect: true
+        });
+
+        socket.on('connect', () => {
+          console.log('✅ WiFi/MQTT Backend: Connected');
+          wifiMqttAvailable = true;
+          // Silent notification (no popup)
+        });
+
+        socket.on('location_update', (data) => {
+          // HYBRID MODE: One-time anchor setup
+          setupTrackingAnchor();
+
+          // HYBRID MODE: Process MQTT data even if BLE is connected
+          // Priority logic is handled inside updateDeviceLocation
+          const lat = parseFloat(data.lat);
+          const lon = parseFloat(data.lon);
+
+          if (!isNaN(lat) && !isNaN(lon)) {
+            console.log('☁️ MQTT Update Received:', lat, lon);
+
+            // Update UI to show Hybrid if BLE is also active
+            const statusEl = document.getElementById('trackerStatus');
+            if (statusEl) {
+              if (trackerConnected || beaconConnected) {
+                statusEl.innerHTML = '📍 Tracker: <span style="color:#22c55e">Online (Hybrid WiFi + BLE)</span>';
+              } else {
+                statusEl.innerHTML = '📍 Tracker: <span style="color:#3b82f6">Online (WiFi/MQTT)</span>';
+              }
+            }
+
+            // Use existing location update function
+            if (typeof updateDeviceLocation === 'function') {
+              updateDeviceLocation(lat, lon);
+            }
+          }
+        });
+
+        socket.on('event_update', (data) => {
+          // Process events regardless of BLE status (fall alerts are critical)
+          console.log('🔔 Cloud Event:', data);
+
+          if (data.type === 'motion' && data.value === 'fall') {
+            // Trigger fall alert even if BLE is active (redundancy)
+            if (typeof triggerSystemAlert === 'function') {
+              triggerSystemAlert('🚨 FALL DETECTED (Cloud)', 'Impact detected via WiFi/MQTT!', true);
+            }
+          }
+        });
+
+        socket.on('disconnect', () => {
+          console.log('❌ WiFi/MQTT Backend: Disconnected');
+          wifiMqttAvailable = false;
+          // Silent - no error shown to user (BLE continues working)
+        });
+
+        socket.on('connect_error', (error) => {
+          // Completely silent - backend unavailable is normal
+          wifiMqttAvailable = false;
+        });
+
+        socket.on('error', (error) => {
+          // Silent error handling
+          wifiMqttAvailable = false;
+        });
+
+      } catch (e) {
+        // Silent catch - system works on BLE
+        console.log('Socket.io not available (BLE-only mode)');
+      }
+    }
+
+    // [NEW] Authorize/Reconnect Logic
+    async function checkAuthorizedDevices() {
+      if (!navigator.bluetooth || !navigator.bluetooth.getDevices) return;
+
+      try {
+        const devices = await navigator.bluetooth.getDevices();
+        const tracker = devices.find(d => d.name && d.name.includes("ESP32-S3-Tracker"));
+
+        if (tracker) {
+          console.log("Found authorized tracker:", tracker.name);
+          authorizedTrackerDevice = tracker; // Store for one-click reconnect
+          const btn = document.getElementById("connectTrackerBtn");
+          if (btn && !trackerConnected) {
+            btn.innerHTML = `📍 Reconnect: ${tracker.name}`;
+            btn.title = "Click to reconnect instantly to your authorized device";
+          }
+        }
+      } catch (e) {
+        console.warn("getDevices() not available or failed:", e);
+      }
+    }
+
+    // [WATCHDOG] Auto-disconnect stagnant devices (hardware power-loss detection)
+    function startWatchdog() {
+      setInterval(() => {
+        const now = Date.now();
+        const timeout = 12000; // 12 seconds
+
+        if (trackerConnected && lastTrackerDataTime > 0) {
+          if (now - lastTrackerDataTime > timeout) {
+            console.warn("Watchdog: Tracker stagnant. Unplugged or crashed.");
+            logNotification("📡 CONNECTION LOST", "Tracker stopped responding. Attempting to reconnect...", "danger");
+            handleDisconnect({ target: trackerDevice });
+
+            // Seamless Reconnect
+            setTimeout(() => {
+              if (authorizedTrackerDevice) autoConnectTracker(authorizedTrackerDevice);
+            }, 3000);
+          }
+        }
+
+        if (beaconConnected && lastBeaconDataTime > 0 && (now - lastBeaconDataTime > timeout)) {
+          console.warn("Watchdog: Beacon stagnant. Hardware likely unplugged.");
+          handleDisconnect({ target: beaconDevice });
+        }
+      }, 5000);
+    }
+
+    // Auto-init on page load (silent)
+    initSocketConnection();
+    checkAuthorizedDevices();
+    startWatchdog();
+  </script>
+</body>
+
+</html>
