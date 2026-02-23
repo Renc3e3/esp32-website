@@ -3905,29 +3905,6 @@
     // Silent Socket.io connection (no errors shown to user)
     function initSocketConnection() {
       try {
-        socket = io('http://localhost:3000', {
-          reconnection: true,
-          reconnectionDelay: 15000,  // Retry every 15s
-          reconnectionAttempts: Infinity,
-          timeout: 5000,
-          autoConnect: true
-        });
-
-        socket.on('connect', () => {
-          console.log('✅ WiFi/MQTT Backend: Connected');
-          wifiMqttAvailable = true;
-          // Silent notification (no popup)
-        });
-
-        socket.on('location_update', (data) => {
-          // HYBRID MODE: One-time anchor setup
-          setupTrackingAnchor();
-
-          // HYBRID MODE: Process MQTT data even if BLE is connected
-          // Priority logic is handled inside updateDeviceLocation
-          const lat = parseFloat(data.lat);
-          const lon = parseFloat(data.lon);
-
           if (!isNaN(lat) && !isNaN(lon)) {
             console.log('☁️ MQTT Update Received:', lat, lon);
 
