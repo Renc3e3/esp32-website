@@ -3890,20 +3890,13 @@
       }
     });
   </script>
-  <!-- Full Stack Features: Socket.IO Client -->
-  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
   <script>
     // ===================================================================
     // AUTOMATIC HYBRID BLE+WiFi TRACKING
     // ===================================================================
     // WiFi/MQTT is automatic when available, but BLE always works independently
-
-    let socket = null;
     let wifiMqttAvailable = false;
     let bleWifiStatus = { wifi: false, mqtt: false, ip: "0.0.0.0" };
-
-    // Silent Socket.io connection (no errors shown to user)
-    function initSocketConnection() {
       try {
           if (!isNaN(lat) && !isNaN(lon)) {
             console.log('☁️ MQTT Update Received:', lat, lon);
@@ -3925,10 +3918,6 @@
           }
         });
 
-        socket.on('event_update', (data) => {
-          // Process events regardless of BLE status (fall alerts are critical)
-          console.log('🔔 Cloud Event:', data);
-
           if (data.type === 'motion' && data.value === 'fall') {
             // Trigger fall alert even if BLE is active (redundancy)
             if (typeof triggerSystemAlert === 'function') {
@@ -3937,25 +3926,8 @@
           }
         });
 
-        socket.on('disconnect', () => {
-          console.log('❌ WiFi/MQTT Backend: Disconnected');
-          wifiMqttAvailable = false;
-          // Silent - no error shown to user (BLE continues working)
-        });
-
-        socket.on('connect_error', (error) => {
-          // Completely silent - backend unavailable is normal
-          wifiMqttAvailable = false;
-        });
-
-        socket.on('error', (error) => {
-          // Silent error handling
-          wifiMqttAvailable = false;
-        });
-
       } catch (e) {
         // Silent catch - system works on BLE
-        console.log('Socket.io not available (BLE-only mode)');
       }
     }
 
@@ -4008,7 +3980,6 @@
     }
 
     // Auto-init on page load (silent)
-    initSocketConnection();
     checkAuthorizedDevices();
     startWatchdog();
   </script>
